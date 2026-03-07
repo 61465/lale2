@@ -27,8 +27,8 @@ flutter:
   uses-material-design: true
   assets:
     - assets/
-    - audio/sky.wav
-    - audio/rain.wav
-    - audio/river.wav
-    - audio/forest.wav
-    - audio/fire.mp3
+    - assets/audio/sky.wav
+    - assets/audio/rain.wav
+    - assets/audio/river.wav
+    - assets/audio/forest.wav
+    - assets/audio/fire.mp3
