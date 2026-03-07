@@ -2105,14 +2105,10 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     if (!_meditationSoundOn) return;
     try {
       final file = _getMeditationSoundFile(scene);
-      // تحميل الملف من assets كـ bytes ثم تشغيله - يعمل على جميع الأجهزة
-      final bytes = await rootBundle.load('assets/audio/$file');
       await _meditationPlayer.stop();
       await _meditationPlayer.setVolume(1.0);
       await _meditationPlayer.setReleaseMode(ReleaseMode.loop);
-      await _meditationPlayer.play(
-        BytesSource(bytes.buffer.asUint8List()),
-      );
+      await _meditationPlayer.play(AssetSource('audio/$file'));
     } catch (e) {
       debugPrint('Sound error: $e');
     }
