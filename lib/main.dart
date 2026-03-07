@@ -60,6 +60,38 @@ class StarModel {
   StarModel(this.x, this.y, {this.floatOffset = 0});
 }
 
+// موديل الذكريات المشتركة
+class CoupleMemory {
+  String title;
+  String date;
+  String note;
+  String emoji;
+  CoupleMemory(this.title, this.date, this.note, {this.emoji = "💕"});
+}
+
+// موديل تحديات الأسبوع
+class WeekChallenge {
+  String title;
+  String description;
+  bool alaasDone;
+  bool husbandDone;
+  String emoji;
+  WeekChallenge(this.title, this.description,
+    {this.alaasDone = false, this.husbandDone = false, this.emoji = "🏆"});
+}
+
+// موديل الكورسات
+class CourseItem {
+  String name;
+  String category;  // مهارات / لغات / طب / تقنية / أخرى
+  String videoUrl;
+  String notes;
+  bool isDone;
+  String emoji;
+  CourseItem(this.name, this.category,
+    {this.videoUrl = "", this.notes = "", this.isDone = false, this.emoji = "📚"});
+}
+
 class RecipeModel {
   String name;
   String category;   // حلويات / رئيسية / مشروبات / سلطات
@@ -351,6 +383,12 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
   bool _isPlaying = false;
   List<String> _cinemaVideos = [];
   List<Map<String,String>> _coupleVideos = []; // روابط فيديوهات قائمة مع زوجي
+  List<CoupleMemory> _coupleMemories = [];
+  List<WeekChallenge> _weekChallenges = [];
+  List<CourseItem> _courses = [];
+  String _courseCategory = "الكل";
+  String _moodNote = "";
+  List<Map<String,String>> _moodHistory = []; // سجل المزاج
   List<RecipeModel> _recipes = [];
   String _recipeCategory = "الكل";          // صفحة السينما
   Timer? _timeOfDayTimer;                   // تحديث وقت اليوم
@@ -569,6 +607,55 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       final alaaQ = prefs.getStringList('alaaQuotes');
       if (alaaQ != null) _alaaQuotes = alaaQ;
       // الوصفات
+      // ===== الذكريات المشتركة =====
+      final cmT = prefs.getStringList('cmTitles') ?? [];
+      final cmD = prefs.getStringList('cmDates')  ?? [];
+      final cmN = prefs.getStringList('cmNotes')  ?? [];
+      final cmE = prefs.getStringList('cmEmojis') ?? [];
+      if (cmT.isNotEmpty) {
+        _coupleMemories = List.generate(cmT.length, (i) => CoupleMemory(
+          cmT[i], i < cmD.length ? cmD[i] : '',
+          i < cmN.length ? cmN[i] : '',
+          emoji: i < cmE.length ? cmE[i] : '💕'));
+      }
+      // ===== تحديات الأسبوع =====
+      final wcT = prefs.getStringList('wcTitles') ?? [];
+      final wcD = prefs.getStringList('wcDescs')  ?? [];
+      final wcE = prefs.getStringList('wcEmojis') ?? [];
+      final wcA = prefs.getStringList('wcAlaa')   ?? [];
+      final wcH = prefs.getStringList('wcHusb')   ?? [];
+      if (wcT.isNotEmpty) {
+        _weekChallenges = List.generate(wcT.length, (i) => WeekChallenge(
+          wcT[i], i < wcD.length ? wcD[i] : '',
+          emoji: i < wcE.length ? wcE[i] : '🏆',
+          alaasDone:  i < wcA.length ? wcA[i] == '1' : false,
+          husbandDone: i < wcH.length ? wcH[i] == '1' : false));
+      }
+      // ===== الكورسات =====
+      final cN = prefs.getStringList('courseNames') ?? [];
+      final cC = prefs.getStringList('courseCats')  ?? [];
+      final cU = prefs.getStringList('courseUrls')  ?? [];
+      final cNt= prefs.getStringList('courseNotes') ?? [];
+      final cEm= prefs.getStringList('courseEmoji') ?? [];
+      final cDn= prefs.getStringList('courseDone')  ?? [];
+      if (cN.isNotEmpty) {
+        _courses = List.generate(cN.length, (i) => CourseItem(
+          cN[i], i < cC.length ? cC[i] : 'أخرى',
+          videoUrl: i < cU.length  ? cU[i]  : '',
+          notes:    i < cNt.length ? cNt[i] : '',
+          emoji:    i < cEm.length ? cEm[i] : '📚',
+          isDone:   i < cDn.length ? cDn[i] == '1' : false));
+      }
+      // ===== المزاج =====
+      _moodNote = prefs.getString('moodNote') ?? '';
+      final mhT = prefs.getStringList('moodHistTimes')  ?? [];
+      final mhV = prefs.getStringList('moodHistValues') ?? [];
+      if (mhT.isNotEmpty) {
+        _moodHistory = List.generate(mhT.length, (i) => {
+          'time': mhT[i],
+          'mood': i < mhV.length ? mhV[i] : ''});
+      }
+      // ===== الوصفات =====
       final rNames  = prefs.getStringList('recipeNames')  ?? [];
       final rCats   = prefs.getStringList('recipeCats')   ?? [];
       final rIngr   = prefs.getStringList('recipeIngr')   ?? [];
@@ -631,6 +718,29 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     if (_specialDate != null) await prefs.setString('specialDate', _specialDate!.toIso8601String());
     await prefs.setString('specialDateLabel', _specialDateLabel);
     // الوصفات
+    // ===== الذكريات المشتركة =====
+    await prefs.setStringList('cmTitles', _coupleMemories.map((m) => m.title).toList());
+    await prefs.setStringList('cmDates',  _coupleMemories.map((m) => m.date).toList());
+    await prefs.setStringList('cmNotes',  _coupleMemories.map((m) => m.note).toList());
+    await prefs.setStringList('cmEmojis', _coupleMemories.map((m) => m.emoji).toList());
+    // ===== تحديات الأسبوع =====
+    await prefs.setStringList('wcTitles', _weekChallenges.map((c) => c.title).toList());
+    await prefs.setStringList('wcDescs',  _weekChallenges.map((c) => c.description).toList());
+    await prefs.setStringList('wcEmojis', _weekChallenges.map((c) => c.emoji).toList());
+    await prefs.setStringList('wcAlaa',   _weekChallenges.map((c) => c.alaasDone ? "1" : "0").toList());
+    await prefs.setStringList('wcHusb',   _weekChallenges.map((c) => c.husbandDone ? "1" : "0").toList());
+    // ===== الكورسات =====
+    await prefs.setStringList('courseNames', _courses.map((c) => c.name).toList());
+    await prefs.setStringList('courseCats',  _courses.map((c) => c.category).toList());
+    await prefs.setStringList('courseUrls',  _courses.map((c) => c.videoUrl).toList());
+    await prefs.setStringList('courseNotes', _courses.map((c) => c.notes).toList());
+    await prefs.setStringList('courseEmoji', _courses.map((c) => c.emoji).toList());
+    await prefs.setStringList('courseDone',  _courses.map((c) => c.isDone ? "1" : "0").toList());
+    // ===== المزاج =====
+    await prefs.setString('moodNote', _moodNote);
+    await prefs.setStringList('moodHistTimes',  _moodHistory.map((m) => m['time'] ?? '').toList());
+    await prefs.setStringList('moodHistValues', _moodHistory.map((m) => m['mood'] ?? '').toList());
+    // ===== الوصفات =====
     await prefs.setStringList('recipeNames',  _recipes.map((r) => r.name).toList());
     await prefs.setStringList('recipeCats',   _recipes.map((r) => r.category).toList());
     await prefs.setStringList('recipeIngr',   _recipes.map((r) => r.ingredients).toList());
@@ -1239,6 +1349,10 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       case 15: return [const Color(0xFFFCE4EC), const Color(0xFFF8BBD9)];
       case 16: return [const Color(0xFF0a0a0a), const Color(0xFF1a1a1a)];
       case 17: return [const Color(0xFFFF6F00), const Color(0xFFFFCC02)];
+      case 18: return [const Color(0xFF6A1B9A), const Color(0xFFAB47BC)];
+      case 19: return [const Color(0xFFAD1457), const Color(0xFFE91E63)];
+      case 20: return [const Color(0xFF1565C0), const Color(0xFF42A5F5)];
+      case 21: return [const Color(0xFF2E7D32), const Color(0xFF66BB6A)];
       default: return [const Color(0xFFFDEEF2), const Color(0xFFFFF0F5)];
     }
   }
@@ -1277,6 +1391,10 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                 _sidebarItem(11, "📚 التمريض", Icons.medical_services),
                 _sidebarItem(16, "🎬 السينما", Icons.movie),
                 _sidebarItem(17, "🍳 وصفاتي", Icons.restaurant_menu),
+                _sidebarItem(18, "😊 مزاجي اليوم", Icons.mood),
+                _sidebarItem(19, "💑 ذكرياتنا", Icons.photo_album),
+                _sidebarItem(20, "🏆 تحدي الأسبوع", Icons.emoji_events),
+                _sidebarItem(21, "🎓 كورساتي", Icons.school),
                 const Divider(),
                 _sidebarItem(12, "🌙 ورد يومي", Icons.favorite_border),
                 _sidebarItem(13, "⏱️ بومودورو", Icons.timer),
@@ -1432,6 +1550,10 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       case 15: return _buildLockedMessagesPage();
       case 16: return _buildCinemaPage();
       case 17: return _buildRecipesPage();
+      case 18: return _buildMoodPage();
+      case 19: return _buildCoupleMemoriesPage();
+      case 20: return _buildWeekChallengePage();
+      case 21: return _buildCoursesPage();
       default: return _buildComingSoon();
     }
   }
@@ -5083,6 +5205,1261 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
   }
 
 
+
+
+  // =================== صفحة المزاج ===================
+  Widget _buildMoodPage() {
+    final moods = [
+      {"key": "happy",     "emoji": "😊", "label": "سعيدة",    "color": "0xFFFFD700"},
+      {"key": "peaceful",  "emoji": "😌", "label": "هادئة",    "color": "0xFF81C784"},
+      {"key": "romantic",  "emoji": "🥰", "label": "رومانسية", "color": "0xFFF48FB1"},
+      {"key": "excited",   "emoji": "🤩", "label": "متحمسة",   "color": "0xFFFFAB40"},
+      {"key": "tired",     "emoji": "😴", "label": "متعبة",    "color": "0xFF90A4AE"},
+      {"key": "stressed",  "emoji": "😤", "label": "متوترة",   "color": "0xFFEF9A9A"},
+      {"key": "sad",       "emoji": "😔", "label": "حزينة",    "color": "0xFF80DEEA"},
+      {"key": "motivated", "emoji": "💪", "label": "متحفزة",   "color": "0xFFCE93D8"},
+    ];
+
+    final moodNoteCtrl = TextEditingController(text: _moodNote);
+    final currentMoodKey = currentMood.name;
+
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // Header
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF6A1B9A), Color(0xFFAB47BC)]),
+            ),
+            child: Column(
+              children: [
+                Text(_getMoodEmoji(), style: const TextStyle(fontSize: 64)),
+                const SizedBox(height: 10),
+                Text("كيف حالكِ اليوم يا آلاء؟",
+                  style: const TextStyle(color: Colors.white, fontSize: 20,
+                    fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text(_getMoodLabel(),
+                  style: const TextStyle(color: Colors.white70, fontSize: 15)),
+              ],
+            ),
+          ),
+
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // اختيار المزاج
+                const Text("اختاري مزاجكِ 💜",
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                GridView.count(
+                  crossAxisCount: 4,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                  children: moods.map((m) {
+                    final isSelected = currentMoodKey == m["key"];
+                    final col = Color(int.parse(m["color"]!));
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          currentMood = AlaaMood.values.firstWhere(
+                            (v) => v.name == m["key"],
+                            orElse: () => AlaaMood.peaceful);
+                          // سجل في التاريخ
+                          _moodHistory.insert(0, {
+                            'time': DateTime.now().toString().substring(0,16),
+                            'mood': m["label"]!,
+                            'emoji': m["emoji"]!,
+                          });
+                          if (_moodHistory.length > 30) _moodHistory.removeLast();
+                        });
+                        _saveAll();
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        decoration: BoxDecoration(
+                          color: isSelected ? col : col.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isSelected ? col : Colors.transparent,
+                            width: 2),
+                          boxShadow: isSelected ? [BoxShadow(
+                            color: col.withOpacity(0.4),
+                            blurRadius: 8, offset: const Offset(0,3))] : [],
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(m["emoji"]!,
+                              style: TextStyle(fontSize: isSelected ? 28 : 24)),
+                            const SizedBox(height: 4),
+                            Text(m["label"]!,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: isSelected
+                                  ? FontWeight.bold : FontWeight.normal,
+                                color: isSelected ? Colors.white : Colors.grey.shade700),
+                              textAlign: TextAlign.center),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+
+                const SizedBox(height: 20),
+
+                // ملاحظة المزاج
+                const Text("📝 ما الذي يدور في بالكِ؟",
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: moodNoteCtrl,
+                  maxLines: 4,
+                  onChanged: (v) => _moodNote = v,
+                  decoration: InputDecoration(
+                    hintText: "اكتبي ما تشعرين به الآن...",
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: Colors.purple.shade200)),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: Colors.purple.shade400, width: 2)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () { _moodNote = moodNoteCtrl.text; _saveAll();
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text("✅ تم حفظ مزاجكِ"),
+                        backgroundColor: Colors.purple));
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF6A1B9A),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12))),
+                    child: const Text("حفظ المزاج 💜",
+                      style: TextStyle(fontSize: 16)),
+                  ),
+                ),
+
+                // سجل المزاج
+                if (_moodHistory.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  const Text("🕐 سجل المزاج",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  ...List.generate(_moodHistory.length.clamp(0, 7), (i) {
+                    final h = _moodHistory[i];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.purple.shade50,
+                        borderRadius: BorderRadius.circular(12)),
+                      child: Row(
+                        children: [
+                          Text(h['emoji'] ?? "😊",
+                            style: const TextStyle(fontSize: 22)),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(h['mood'] ?? "",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold)),
+                                Text(h['time'] ?? "",
+                                  style: TextStyle(
+                                    color: Colors.grey.shade500, fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getMoodEmoji() {
+    switch(currentMood) {
+      case AlaaMood.warrior:   return "💪";
+      case AlaaMood.cute:      return "🥰";
+      case AlaaMood.peaceful:  return "😌";
+      case AlaaMood.romantic:  return "💕";
+      case AlaaMood.pensive:   return "😔";
+      case AlaaMood.exhausted: return "😴";
+      default:                 return "😊";
+    }
+  }
+
+  String _getMoodLabel() {
+    switch(currentMood) {
+      case AlaaMood.warrior:   return "متحفزة اليوم 💪";
+      case AlaaMood.cute:      return "رومانسية وحنونة 🥰";
+      case AlaaMood.peaceful:  return "هادئة وبخير 😌";
+      case AlaaMood.romantic:  return "محبة ورومانسية 💕";
+      case AlaaMood.pensive:   return "تفكير عميق 🤔";
+      case AlaaMood.exhausted: return "تحتاج للراحة 😴";
+      default:                 return "بخير الحمد لله";
+    }
+  }
+
+  // =================== صفحة ذكرياتنا ===================
+  Widget _buildCoupleMemoriesPage() {
+    return Column(
+      children: [
+        // Header
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFFAD1457), Color(0xFFE91E63)]),
+          ),
+          child: Column(
+            children: [
+              const Text("💑 ذكرياتنا معاً",
+                style: TextStyle(color: Colors.white, fontSize: 24,
+                  fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text("${_coupleMemories.length} ذكرى جميلة",
+                style: const TextStyle(color: Colors.white70, fontSize: 13)),
+            ],
+          ),
+        ),
+
+        // Timeline
+        Expanded(
+          child: _coupleMemories.isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text("💕", style: TextStyle(fontSize: 70)),
+                    const SizedBox(height: 12),
+                    Text("أضيفي أول ذكرى جميلة!\nكل لحظة تستحق التوثيق 📸",
+                      style: TextStyle(color: Colors.grey.shade500, fontSize: 15),
+                      textAlign: TextAlign.center),
+                  ],
+                ),
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                itemCount: _coupleMemories.length,
+                itemBuilder: (ctx, i) {
+                  final m = _coupleMemories[i];
+                  return Dismissible(
+                    key: Key("mem_$i"),
+                    direction: DismissDirection.endToStart,
+                    background: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 20),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade400,
+                        borderRadius: BorderRadius.circular(16)),
+                      child: const Icon(Icons.delete_sweep,
+                        color: Colors.white, size: 26),
+                    ),
+                    onDismissed: (_) {
+                      setState(() => _coupleMemories.removeAt(i));
+                      _saveAll();
+                    },
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // خط التايم لاين
+                        Column(
+                          children: [
+                            Container(
+                              width: 42, height: 42,
+                              decoration: BoxDecoration(
+                                color: Colors.pink.shade100,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.pink.shade300, width: 2)),
+                              child: Center(
+                                child: Text(m.emoji,
+                                  style: const TextStyle(fontSize: 20))),
+                            ),
+                            if (i < _coupleMemories.length - 1)
+                              Container(
+                                width: 2, height: 40,
+                                color: Colors.pink.shade100),
+                          ],
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [BoxShadow(
+                                color: Colors.pink.withOpacity(0.1),
+                                blurRadius: 8, offset: const Offset(0,3))],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(m.title,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 15)),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Icon(Icons.calendar_today,
+                                      size: 12, color: Colors.grey.shade400),
+                                    const SizedBox(width: 4),
+                                    Text(m.date,
+                                      style: TextStyle(
+                                        color: Colors.grey.shade500,
+                                        fontSize: 12)),
+                                  ],
+                                ),
+                                if (m.note.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Text(m.note,
+                                    style: TextStyle(
+                                      color: Colors.grey.shade700,
+                                      fontSize: 13, height: 1.5)),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+        ),
+
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: ElevatedButton.icon(
+            onPressed: _addCoupleMemory,
+            icon: const Icon(Icons.add_photo_alternate),
+            label: const Text("إضافة ذكرى جميلة 💕"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFAD1457),
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 50),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14))),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _addCoupleMemory() {
+    final titleCtrl = TextEditingController();
+    final dateCtrl  = TextEditingController(
+      text: DateTime.now().toString().substring(0,10));
+    final noteCtrl  = TextEditingController();
+    String selEmoji = "💕";
+    final emojis = ["💕","💍","🌹","✈️","🎂","🎉","🏖️","🌙","⭐","🎁","🥂","🏠"];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.75,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.fromLTRB(20,14,20,14),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFFAD1457), Color(0xFFE91E63)]),
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+                  child: Row(
+                    children: [
+                      const Text("💕 ذكرى جديدة",
+                        style: TextStyle(color: Colors.white, fontSize: 18,
+                          fontWeight: FontWeight.bold)),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white70),
+                        onPressed: () => Navigator.pop(ctx)),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          controller: titleCtrl,
+                          decoration: InputDecoration(
+                            labelText: "عنوان الذكرى",
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12))),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: dateCtrl,
+                          decoration: InputDecoration(
+                            labelText: "التاريخ",
+                            prefixIcon: const Icon(Icons.calendar_today),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12))),
+                        ),
+                        const SizedBox(height: 12),
+                        const Text("الأيقونة:",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          children: emojis.map((e) => GestureDetector(
+                            onTap: () => setS(() => selEmoji = e),
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: selEmoji == e
+                                  ? Colors.pink.shade100 : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: selEmoji == e
+                                    ? Colors.pink : Colors.transparent)),
+                              child: Text(e,
+                                style: const TextStyle(fontSize: 22))),
+                          )).toList(),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: noteCtrl,
+                          maxLines: 4,
+                          decoration: InputDecoration(
+                            labelText: "وصف الذكرى",
+                            hintText: "اكتبي تفاصيل هذه اللحظة الجميلة...",
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                            alignLabelWithHint: true),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18,0,18,24),
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFAD1457),
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12))),
+                    onPressed: () {
+                      if (titleCtrl.text.trim().isEmpty) return;
+                      setState(() => _coupleMemories.insert(0,
+                        CoupleMemory(titleCtrl.text.trim(),
+                          dateCtrl.text.trim(), noteCtrl.text.trim(),
+                          emoji: selEmoji)));
+                      _saveAll();
+                      Navigator.pop(ctx);
+                    },
+                    child: const Text("حفظ الذكرى 💕",
+                      style: TextStyle(fontSize: 16)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // =================== صفحة تحدي الأسبوع ===================
+  Widget _buildWeekChallengePage() {
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(20,20,20,24),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF1565C0), Color(0xFF42A5F5)]),
+          ),
+          child: Column(
+            children: [
+              const Text("🏆 تحدي الأسبوع",
+                style: TextStyle(color: Colors.white, fontSize: 24,
+                  fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text("${_weekChallenges.length} تحدٍّ مشترك",
+                style: const TextStyle(color: Colors.white70, fontSize: 13)),
+            ],
+          ),
+        ),
+
+        Expanded(
+          child: _weekChallenges.isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text("🏆", style: TextStyle(fontSize: 70)),
+                    const SizedBox(height: 12),
+                    Text("لا يوجد تحدي حالياً!\nأضيفا تحدياً ممتعاً معاً 💪",
+                      style: TextStyle(color: Colors.grey.shade500, fontSize: 15),
+                      textAlign: TextAlign.center),
+                  ],
+                ),
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.all(14),
+                itemCount: _weekChallenges.length,
+                itemBuilder: (ctx, i) {
+                  final c = _weekChallenges[i];
+                  final bothDone = c.alaasDone && c.husbandDone;
+                  return Dismissible(
+                    key: Key("wc_$i"),
+                    direction: DismissDirection.endToStart,
+                    background: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 20),
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade400,
+                        borderRadius: BorderRadius.circular(16)),
+                      child: const Icon(Icons.delete_sweep,
+                        color: Colors.white, size: 26),
+                    ),
+                    onDismissed: (_) {
+                      setState(() => _weekChallenges.removeAt(i));
+                      _saveAll();
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      decoration: BoxDecoration(
+                        color: bothDone
+                          ? Colors.blue.shade50 : Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: bothDone
+                            ? Colors.blue.shade300 : Colors.grey.shade200),
+                        boxShadow: [BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 8, offset: const Offset(0,3))],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(c.emoji,
+                                  style: const TextStyle(fontSize: 28)),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(c.title,
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          decoration: bothDone
+                                            ? TextDecoration.lineThrough
+                                            : null)),
+                                      if (c.description.isNotEmpty)
+                                        Text(c.description,
+                                          style: TextStyle(
+                                            color: Colors.grey.shade600,
+                                            fontSize: 12)),
+                                    ],
+                                  ),
+                                ),
+                                if (bothDone)
+                                  const Text("✅ مكتمل!",
+                                    style: TextStyle(
+                                      color: Colors.green,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12)),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setState(() =>
+                                        _weekChallenges[i].alaasDone =
+                                          !_weekChallenges[i].alaasDone);
+                                      _saveAll();
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: c.alaasDone
+                                          ? Colors.blue.shade600
+                                          : Colors.grey.shade100,
+                                        borderRadius: BorderRadius.circular(10)),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            c.alaasDone
+                                              ? Icons.check_circle
+                                              : Icons.radio_button_unchecked,
+                                            size: 16,
+                                            color: c.alaasDone
+                                              ? Colors.white
+                                              : Colors.grey),
+                                          const SizedBox(width: 6),
+                                          Text("آلاء",
+                                            style: TextStyle(
+                                              color: c.alaasDone
+                                                ? Colors.white
+                                                : Colors.grey.shade700,
+                                              fontWeight: FontWeight.bold)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setState(() =>
+                                        _weekChallenges[i].husbandDone =
+                                          !_weekChallenges[i].husbandDone);
+                                      _saveAll();
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: c.husbandDone
+                                          ? Colors.blue.shade600
+                                          : Colors.grey.shade100,
+                                        borderRadius: BorderRadius.circular(10)),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            c.husbandDone
+                                              ? Icons.check_circle
+                                              : Icons.radio_button_unchecked,
+                                            size: 16,
+                                            color: c.husbandDone
+                                              ? Colors.white
+                                              : Colors.grey),
+                                          const SizedBox(width: 6),
+                                          Text("الزوج",
+                                            style: TextStyle(
+                                              color: c.husbandDone
+                                                ? Colors.white
+                                                : Colors.grey.shade700,
+                                              fontWeight: FontWeight.bold)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+        ),
+
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: ElevatedButton.icon(
+            onPressed: _addWeekChallenge,
+            icon: const Icon(Icons.add),
+            label: const Text("إضافة تحدي جديد 🏆"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1565C0),
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 50),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14))),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _addWeekChallenge() {
+    final titleCtrl = TextEditingController();
+    final descCtrl  = TextEditingController();
+    String selEmoji = "🏆";
+    const emojis = ["🏆","💪","📚","🏃","🍎","🎨","🌙","⭐","🎯","🧘","🤝","❤️"];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20)),
+          title: const Text("🏆 تحدي جديد"),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: titleCtrl,
+                  decoration: InputDecoration(
+                    labelText: "اسم التحدي",
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12))),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: descCtrl,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: "وصف التحدي",
+                    hintText: "مثال: نمشي 30 دقيقة يومياً",
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12))),
+                ),
+                const SizedBox(height: 12),
+                const Text("الأيقونة:",
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  children: emojis.map((e) => GestureDetector(
+                    onTap: () => setS(() => selEmoji = e),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: selEmoji == e
+                          ? Colors.blue.shade100 : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: selEmoji == e
+                            ? Colors.blue : Colors.transparent)),
+                      child: Text(e,
+                        style: const TextStyle(fontSize: 22))),
+                  )).toList(),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("إلغاء")),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1565C0),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10))),
+              onPressed: () {
+                if (titleCtrl.text.trim().isEmpty) return;
+                setState(() => _weekChallenges.insert(0,
+                  WeekChallenge(titleCtrl.text.trim(),
+                    descCtrl.text.trim(), emoji: selEmoji)));
+                _saveAll();
+                Navigator.pop(ctx);
+              },
+              child: const Text("إضافة ✅")),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // =================== صفحة الكورسات ===================
+  Widget _buildCoursesPage() {
+    final cats = ["الكل","📱 تقنية","🏥 طب","🗣️ لغات","🎨 مهارات","📖 أخرى"];
+    final filtered = _courseCategory == "الكل"
+      ? _courses
+      : _courses.where((c) => c.category == _courseCategory).toList();
+    final done   = _courses.where((c) => c.isDone).length;
+    final total  = _courses.length;
+
+    return Column(
+      children: [
+        // Header
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(20,18,20,22),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)]),
+          ),
+          child: Column(
+            children: [
+              const Text("🎓 كورساتي",
+                style: TextStyle(color: Colors.white, fontSize: 24,
+                  fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              if (total > 0) ...[
+                Text("$done / $total مكتملة",
+                  style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: LinearProgressIndicator(
+                    value: total > 0 ? done / total : 0,
+                    backgroundColor: Colors.white30,
+                    color: Colors.white,
+                    minHeight: 8,
+                  ),
+                ),
+              ] else
+                const Text("ابدئي رحلة التعلم! 🌱",
+                  style: TextStyle(color: Colors.white70)),
+            ],
+          ),
+        ),
+
+        // فلتر
+        Container(
+          color: Colors.white,
+          height: 52,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            itemCount: cats.length,
+            itemBuilder: (ctx, i) {
+              final cat = cats[i];
+              final sel = _courseCategory == cat;
+              return GestureDetector(
+                onTap: () => setState(() => _courseCategory = cat),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: BoxDecoration(
+                    color: sel ? const Color(0xFF2E7D32) : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: sel ? [BoxShadow(
+                      color: const Color(0xFF2E7D32).withOpacity(0.3),
+                      blurRadius: 6)] : [],
+                  ),
+                  child: Text(cat,
+                    style: TextStyle(
+                      color: sel ? Colors.white : Colors.grey.shade700,
+                      fontWeight: sel ? FontWeight.bold : FontWeight.normal,
+                      fontSize: 13)),
+                ),
+              );
+            },
+          ),
+        ),
+        const Divider(height: 1),
+
+        // القائمة
+        Expanded(
+          child: filtered.isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text("🎓", style: TextStyle(fontSize: 70)),
+                    const SizedBox(height: 12),
+                    Text(
+                      _courses.isEmpty
+                        ? "أضيفي أول كورس تريدين تعلّمه!"
+                        : "لا يوجد كورسات في هذه الفئة",
+                      style: TextStyle(color: Colors.grey.shade500, fontSize: 15),
+                      textAlign: TextAlign.center),
+                  ],
+                ),
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.all(12),
+                itemCount: filtered.length,
+                itemBuilder: (ctx, i) {
+                  final c = filtered[i];
+                  final realIdx = _courses.indexOf(c);
+                  return Dismissible(
+                    key: Key("course_$realIdx"),
+                    direction: DismissDirection.endToStart,
+                    background: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 20),
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade400,
+                        borderRadius: BorderRadius.circular(14)),
+                      child: const Icon(Icons.delete_sweep,
+                        color: Colors.white, size: 26),
+                    ),
+                    onDismissed: (_) {
+                      setState(() => _courses.removeAt(realIdx));
+                      _saveAll();
+                    },
+                    child: Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onLongPress: () => _editCourse(realIdx),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            children: [
+                              // أيقونة
+                              Container(
+                                width: 50, height: 50,
+                                decoration: BoxDecoration(
+                                  color: c.isDone
+                                    ? Colors.green.shade50
+                                    : Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(12)),
+                                child: Center(
+                                  child: Text(c.emoji,
+                                    style: const TextStyle(fontSize: 26))),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(c.name,
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                        decoration: c.isDone
+                                          ? TextDecoration.lineThrough
+                                          : null,
+                                        color: c.isDone
+                                          ? Colors.grey : Colors.black87)),
+                                    const SizedBox(height: 3),
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 7, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.green.shade50,
+                                            borderRadius: BorderRadius.circular(6)),
+                                          child: Text(c.category,
+                                            style: TextStyle(
+                                              color: Colors.green.shade700,
+                                              fontSize: 10)),
+                                        ),
+                                        if (c.videoUrl.isNotEmpty) ...[
+                                          const SizedBox(width: 6),
+                                          GestureDetector(
+                                            onTap: () async {
+                                              final uri = Uri.tryParse(c.videoUrl);
+                                              if (uri != null && await canLaunchUrl(uri)) {
+                                                await launchUrl(uri,
+                                                  mode: LaunchMode.externalApplication);
+                                              }
+                                            },
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 7, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: Colors.red.shade50,
+                                                borderRadius: BorderRadius.circular(6)),
+                                              child: const Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(Icons.play_circle,
+                                                    size: 12,
+                                                    color: Colors.red),
+                                                  SizedBox(width: 3),
+                                                  Text("فيديو",
+                                                    style: TextStyle(
+                                                      color: Colors.red,
+                                                      fontSize: 10)),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                    if (c.notes.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text(c.notes,
+                                        style: TextStyle(
+                                          color: Colors.grey.shade500,
+                                          fontSize: 11),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              // Checkbox إتمام
+                              GestureDetector(
+                                onTap: () {
+                                  setState(() =>
+                                    _courses[realIdx].isDone =
+                                      !_courses[realIdx].isDone);
+                                  _saveAll();
+                                },
+                                child: Container(
+                                  width: 32, height: 32,
+                                  decoration: BoxDecoration(
+                                    color: c.isDone
+                                      ? Colors.green : Colors.grey.shade200,
+                                    shape: BoxShape.circle),
+                                  child: Icon(Icons.check,
+                                    color: c.isDone
+                                      ? Colors.white : Colors.grey.shade400,
+                                    size: 18),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+        ),
+
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: ElevatedButton.icon(
+            onPressed: _addCourse,
+            icon: const Icon(Icons.add),
+            label: const Text("إضافة كورس جديد 🎓"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2E7D32),
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 50),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14))),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _addCourse()          => _showCourseDialog();
+  void _editCourse(int idx)  => _showCourseDialog(existing: _courses[idx], idx: idx);
+
+  void _showCourseDialog({CourseItem? existing, int? idx}) {
+    final nameCtrl  = TextEditingController(text: existing?.name ?? "");
+    final urlCtrl   = TextEditingController(text: existing?.videoUrl ?? "");
+    final notesCtrl = TextEditingController(text: existing?.notes ?? "");
+    String selCat   = existing?.category ?? "📖 أخرى";
+    String selEmoji = existing?.emoji ?? "📚";
+    const emojis = ["📚","🎓","💻","🏥","🗣️","🎨","🎵","📐","🔬","✍️","🌍","🧠"];
+    const cats   = ["📱 تقنية","🏥 طب","🗣️ لغات","🎨 مهارات","📖 أخرى"];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.82,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.fromLTRB(20,14,20,14),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)]),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(24))),
+                  child: Row(
+                    children: [
+                      Text(existing == null
+                        ? "🎓 كورس جديد" : "✏️ تعديل الكورس",
+                        style: const TextStyle(color: Colors.white,
+                          fontSize: 18, fontWeight: FontWeight.bold)),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white70),
+                        onPressed: () => Navigator.pop(ctx)),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          controller: nameCtrl,
+                          decoration: InputDecoration(
+                            labelText: "اسم الكورس *",
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12))),
+                        ),
+                        const SizedBox(height: 14),
+                        const Text("الأيقونة:",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          height: 50,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: emojis.length,
+                            itemBuilder: (ctx, i) => GestureDetector(
+                              onTap: () => setS(() => selEmoji = emojis[i]),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                width: 44, height: 44,
+                                margin: const EdgeInsets.only(right: 6),
+                                decoration: BoxDecoration(
+                                  color: selEmoji == emojis[i]
+                                    ? Colors.green.shade100
+                                    : Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: selEmoji == emojis[i]
+                                      ? Colors.green : Colors.transparent,
+                                    width: 2)),
+                                child: Center(child: Text(emojis[i],
+                                  style: const TextStyle(fontSize: 22))),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        const Text("الفئة:",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 6, runSpacing: 6,
+                          children: cats.map((c) => GestureDetector(
+                            onTap: () => setS(() => selCat = c),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: selCat == c
+                                  ? const Color(0xFF2E7D32)
+                                  : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(10)),
+                              child: Text(c,
+                                style: TextStyle(
+                                  color: selCat == c
+                                    ? Colors.white : Colors.grey.shade700,
+                                  fontWeight: selCat == c
+                                    ? FontWeight.bold : FontWeight.normal,
+                                  fontSize: 12)),
+                            ),
+                          )).toList(),
+                        ),
+                        const SizedBox(height: 14),
+                        TextField(
+                          controller: urlCtrl,
+                          keyboardType: TextInputType.url,
+                          decoration: InputDecoration(
+                            labelText: "رابط الفيديو (اختياري)",
+                            hintText: "https://youtube.com/...",
+                            prefixIcon: const Icon(Icons.link),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12))),
+                        ),
+                        const SizedBox(height: 14),
+                        TextField(
+                          controller: notesCtrl,
+                          maxLines: 3,
+                          decoration: InputDecoration(
+                            labelText: "ملاحظات",
+                            hintText: "لماذا تريدين تعلّم هذا؟",
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                            alignLabelWithHint: true),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18,0,18,24),
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2E7D32),
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12))),
+                    onPressed: () {
+                      if (nameCtrl.text.trim().isEmpty) return;
+                      final course = CourseItem(
+                        nameCtrl.text.trim(), selCat,
+                        videoUrl: urlCtrl.text.trim(),
+                        notes:    notesCtrl.text.trim(),
+                        emoji:    selEmoji,
+                        isDone:   existing?.isDone ?? false);
+                      setState(() {
+                        if (idx != null) {
+                          _courses[idx] = course;
+                        } else {
+                          _courses.insert(0, course);
+                        }
+                      });
+                      _saveAll();
+                      Navigator.pop(ctx);
+                    },
+                    child: Text(existing == null
+                      ? "✅ حفظ الكورس" : "✅ تحديث",
+                      style: const TextStyle(fontSize: 16)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
 }
 class _ImageViewerPage extends StatefulWidget {
