@@ -2530,8 +2530,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                       ),
                       const SizedBox(width: 12),
                       const Expanded(
-                        child: Text("مرة ذُكرت كلمة آلاء في القرآن الكريم
-تعني النعم والعطايا الإلهية التي لا تُحصى",
+                        child: Text("مرة ذُكرت كلمة آلاء في القرآن الكريم\nتعني النعم والعطايا الإلهية التي لا تُحصى",
                           style: TextStyle(fontSize: 14, height: 1.5)),
                       ),
                     ],
@@ -2557,15 +2556,11 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
           Card(
             elevation: 2,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-            child: const Padding(
-              padding: EdgeInsets.all(15),
+            child: Padding(
+              padding: const EdgeInsets.all(15),
               child: Text(
-                'آلاء هو اسم عربي أصيل يعني «النعم» التي لا تُحصى،
-ذُكر في القرآن الكريم 34 مرة ليدل على عظمة عطايا الخالق.
-
-في علم النفس، يرمز الاسم للشخصية المعطاءة والذكية والمبدعة،
-صاحبته تتميز بالعطف والذكاء العاطفي العميق.',
-                style: TextStyle(fontSize: 15, height: 1.7),
+                "آلاء هو اسم عربي أصيل يعني «النعم» التي لا تُحصى،\nذُكر في القرآن الكريم 34 مرة ليدل على عظمة عطايا الخالق.\n\nفي علم النفس، يرمز الاسم للشخصية المعطاءة والذكية والمبدعة،\nصاحبته تتميز بالعطف والذكاء العاطفي العميق.",
+                style: const TextStyle(fontSize: 15, height: 1.7),
               ),
             ),
           ),
