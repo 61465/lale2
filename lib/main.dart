@@ -514,10 +514,6 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       if (mounted) setState(() => _now = DateTime.now());
     });
     
-    // تهيئة مشغل التأمل
-    _meditationPlayer.setReleaseMode(ReleaseMode.loop);
-    _meditationPlayer.setVolume(0.65);
-
     // إضافة بعض النجوم الافتراضية
     for (int i = 0; i < 10; i++) {
       stars.add(StarModel(
@@ -1589,12 +1585,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     switch (_selectedIndex) {
       case 0: return _buildDashboard();
       case 1: return _buildTasksPage();
-      case 2:
-        // شغّل صوت المشهد الحالي عند فتح صفحة التأمل
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_selectedIndex == 2) _playMeditationSound(_natureScene);
-        });
-        return _buildLivingSky();
+      case 2: return _buildLivingSky();
       case 3: return _buildPsychologySection();
       case 4: return _buildLiteraryShrine();
       case 5: return _buildCoupleList();
@@ -2090,14 +2081,15 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
 
   // =================== صوت التأمل ===================
   String _getMeditationSoundFile(String scene) {
+    // أسماء الملفات بعد إعادة التسمية
     switch (scene) {
-      case 'sky':       return '846440__nikoletb__bowed-saw-glissando-dry-raw.wav';
-      case 'rain':      return '845583__tsp-talk__light-rain-village-ambience-distant-children-subtle-rural-atmosphere-altenthann-16-feb-2026-260217_001.wav';
-      case 'river':     return '101332__jgrzinich__night_bird_sounds_by_river.wav';
-      case 'waterfall': return '101332__jgrzinich__night_bird_sounds_by_river.wav';
-      case 'forest':    return '847153__klankbeeld__moor-frogs-zandbergsvennen-kampina-netherlands-1230-pm-260302_0080.wav';
-      case 'fire':      return 'Burning-Logs_-The-Calming-Sound-of-Fire.mp3';
-      default:          return '846440__nikoletb__bowed-saw-glissando-dry-raw.wav';
+      case 'sky':       return 'sky.wav';
+      case 'rain':      return 'rain.wav';
+      case 'river':     return 'river.wav';
+      case 'waterfall': return 'river.wav';
+      case 'forest':    return 'forest.wav';
+      case 'fire':      return 'fire.mp3';
+      default:          return 'sky.wav';
     }
   }
 
@@ -2106,8 +2098,12 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     try {
       final file = _getMeditationSoundFile(scene);
       await _meditationPlayer.stop();
+      await _meditationPlayer.setReleaseMode(ReleaseMode.loop);
+      await _meditationPlayer.setVolume(0.65);
       await _meditationPlayer.play(AssetSource('audio/$file'));
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('🔊 Meditation sound error: $e');
+    }
   }
 
   Future<void> _stopMeditationSound() async {
