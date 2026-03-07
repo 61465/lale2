@@ -4384,7 +4384,6 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       builder: (_) => _VideoPlayerPage(videoPath: path, videoName: name),
     ));
   }
-}
 
 // ================================================================
 // ================ صفحة عرض الصور ================================
@@ -5097,6 +5096,8 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
   }
 
 
+
+}
 class _ImageViewerPage extends StatefulWidget {
   final String imagePath;
   const _ImageViewerPage({required this.imagePath});
