@@ -1502,13 +1502,16 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       leading: Icon(icon, color: isSelected ? Colors.pink : Colors.black54),
       title: Text(title, style: TextStyle(color: isSelected ? Colors.pink : Colors.black87)),
       onTap: () {
+        final prev = _selectedIndex;
         setState(() {
           _selectedIndex = index;
-          // ✅ إغلاق القائمة تلقائياً على الشاشات الصغيرة
           if (MediaQuery.of(context).size.width < 800) {
             _isSidebarOpen = false;
           }
         });
+        // تشغيل/إيقاف صوت التأمل
+        if (prev == 2 && index != 2) _stopMeditationSound();
+        if (index == 2 && prev != 2) _playMeditationSound(_natureScene);
       },
     );
   }
@@ -1919,7 +1922,12 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
   Widget _quickAccessItem(int index, String label, String emoji, Color color) {
     bool isSelected = _selectedIndex == index;
     return GestureDetector(
-      onTap: () => setState(() => _selectedIndex = index),
+      onTap: () {
+        final prev = _selectedIndex;
+        setState(() => _selectedIndex = index);
+        if (prev == 2 && index != 2) _stopMeditationSound();
+        if (index == 2 && prev != 2) _playMeditationSound(_natureScene);
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
@@ -2097,23 +2105,17 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     if (!_meditationSoundOn) return;
     try {
       final file = _getMeditationSoundFile(scene);
-      debugPrint('🔊 Playing: audio/$file');
       await _meditationPlayer.stop();
-      await _meditationPlayer.setReleaseMode(ReleaseMode.loop);
       await _meditationPlayer.setVolume(1.0);
+      await _meditationPlayer.setReleaseMode(ReleaseMode.loop);
       await _meditationPlayer.play(AssetSource('audio/$file'));
-      debugPrint('🔊 Play called successfully');
     } catch (e) {
-      debugPrint('🔊 ERROR: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطأ صوت: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 6),
-          ),
-        );
-      }
+      debugPrint('Sound error: $e');
+      // جرب DeviceFileSource كبديل
+      try {
+        final file = _getMeditationSoundFile(scene);
+        await _meditationPlayer.play(AssetSource(file));
+      } catch (_) {}
     }
   }
 
@@ -2134,6 +2136,31 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                 progress: _skyAnimationController.value,
                 timeOfDay: _timeOfDay,
               ),
+            ),
+          ),
+        ),
+
+        // زر اختبار الصوت (مؤقت)
+        Positioned(
+          top: 70, right: 12,
+          child: GestureDetector(
+            onTap: () async {
+              await _meditationPlayer.stop();
+              await _meditationPlayer.setVolume(1.0);
+              await _meditationPlayer.setReleaseMode(ReleaseMode.loop);
+              final src = AssetSource('audio/${_getMeditationSoundFile(_natureScene)}');
+              await _meditationPlayer.play(src);
+              if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('تشغيل: audio/${_getMeditationSoundFile(_natureScene)}'),
+                  duration: const Duration(seconds: 3)));
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.85),
+                borderRadius: BorderRadius.circular(12)),
+              child: const Text("🔊 اختبار الصوت",
+                style: TextStyle(color: Colors.white, fontSize: 11)),
             ),
           ),
         ),
