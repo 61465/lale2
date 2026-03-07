@@ -407,6 +407,8 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
   Timer? _timeOfDayTimer;                   // تحديث وقت اليوم
   String _timeOfDay = "morning";            // morning/afternoon/sunset/night
   String _natureScene = "sky";              // sky/river/waterfall/nature/farm
+  final AudioPlayer _meditationPlayer = AudioPlayer();
+  bool _meditationSoundOn = true;           // وضع الصوت مفعّل/مغلق
 
   // ================ متغيرات الورد اليومي ================
   int _currentDailyMessageIndex = 0;
@@ -512,6 +514,10 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       if (mounted) setState(() => _now = DateTime.now());
     });
     
+    // تهيئة مشغل التأمل
+    _meditationPlayer.setReleaseMode(ReleaseMode.loop);
+    _meditationPlayer.setVolume(0.65);
+
     // إضافة بعض النجوم الافتراضية
     for (int i = 0; i < 10; i++) {
       stars.add(StarModel(
@@ -1583,7 +1589,12 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     switch (_selectedIndex) {
       case 0: return _buildDashboard();
       case 1: return _buildTasksPage();
-      case 2: return _buildLivingSky();
+      case 2:
+        // شغّل صوت المشهد الحالي عند فتح صفحة التأمل
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_selectedIndex == 2) _playMeditationSound(_natureScene);
+        });
+        return _buildLivingSky();
       case 3: return _buildPsychologySection();
       case 4: return _buildLiteraryShrine();
       case 5: return _buildCoupleList();
@@ -2076,6 +2087,33 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
   // حالة عناصر المشاهد المتحركة
   // =================== مشاهد التأمل بـ CustomPainter ===================
 
+
+  // =================== صوت التأمل ===================
+  String _getMeditationSoundFile(String scene) {
+    switch (scene) {
+      case 'sky':       return '846440__nikoletb__bowed-saw-glissando-dry-raw.wav';
+      case 'rain':      return '845583__tsp-talk__light-rain-village-ambience-distant-children-subtle-rural-atmosphere-altenthann-16-feb-2026-260217_001.wav';
+      case 'river':     return '101332__jgrzinich__night_bird_sounds_by_river.wav';
+      case 'waterfall': return '101332__jgrzinich__night_bird_sounds_by_river.wav';
+      case 'forest':    return '847153__klankbeeld__moor-frogs-zandbergsvennen-kampina-netherlands-1230-pm-260302_0080.wav';
+      case 'fire':      return 'Burning-Logs_-The-Calming-Sound-of-Fire.mp3';
+      default:          return '846440__nikoletb__bowed-saw-glissando-dry-raw.wav';
+    }
+  }
+
+  Future<void> _playMeditationSound(String scene) async {
+    if (!_meditationSoundOn) return;
+    try {
+      final file = _getMeditationSoundFile(scene);
+      await _meditationPlayer.stop();
+      await _meditationPlayer.play(AssetSource('audio/$file'));
+    } catch (_) {}
+  }
+
+  Future<void> _stopMeditationSound() async {
+    try { await _meditationPlayer.stop(); } catch (_) {}
+  }
+
   Widget _buildLivingSky() {
     return Stack(
       children: [
@@ -2161,8 +2199,46 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                 const Text("اسحبي النجوم • اضغطي طويلاً للحذف",
                   style: TextStyle(color: Colors.white54, fontSize: 11)),
               ] else
-                Text(_getMeditationHint(),
-                  style: const TextStyle(color: Colors.white60, fontSize: 12)),
+                Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      setState(() => _meditationSoundOn = !_meditationSoundOn);
+                      if (_meditationSoundOn) {
+                        _playMeditationSound(_natureScene);
+                      } else {
+                        _stopMeditationSound();
+                      }
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _meditationSoundOn
+                          ? Colors.white.withOpacity(0.2)
+                          : Colors.black38,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white30)),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _meditationSoundOn ? Icons.volume_up : Icons.volume_off,
+                            color: Colors.white, size: 16),
+                          const SizedBox(width: 5),
+                          Text(
+                            _meditationSoundOn ? "صوت مفعّل" : "صامت",
+                            style: const TextStyle(color: Colors.white, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(_getMeditationHint(),
+                    style: const TextStyle(color: Colors.white60, fontSize: 12)),
+                ],
+              ),
             ],
           ),
         ),
@@ -2220,7 +2296,10 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
   Widget _sceneBtn(String scene, String emoji, String label, List<Color> grad) {
     final sel = _natureScene == scene;
     return GestureDetector(
-      onTap: () => setState(() => _natureScene = scene),
+      onTap: () {
+        setState(() => _natureScene = scene);
+        _playMeditationSound(scene);
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.only(right: 9),
@@ -3269,6 +3348,8 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     _timeOfDayTimer?.cancel();
     _clockTimer?.cancel();
     _player.dispose();
+    _meditationPlayer.stop();
+    _meditationPlayer.dispose();
     super.dispose();
   }
 
@@ -7265,7 +7346,7 @@ class _NatureScenePainter extends CustomPainter {
       for (double gr = 90; gr >= 20; gr -= 14) {
         canvas.drawCircle(Offset(w*0.5, sy), gr,
           Paint()..color = const Color(0xFFFF6600).withOpacity(0.05)
-                 ..maskFilter = const MaskFilter.blur(BlurStyle.normal, gr * 0.5));
+                 ..maskFilter = MaskFilter.blur(BlurStyle.normal, gr * 0.5));
       }
       canvas.drawCircle(Offset(w*0.5, sy), 34,
         Paint()..color = const Color(0xFFFFCC00));
@@ -7847,7 +7928,7 @@ class _NatureScenePainter extends CustomPainter {
       final sr = 15 + smProgress * 35;
       canvas.drawCircle(Offset(sx, sy), sr,
         Paint()..color = const Color(0xFF1A1A1A).withOpacity((1-smProgress)*0.2)
-               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, sr*0.7));
+               ..maskFilter = MaskFilter.blur(BlurStyle.normal, sr*0.7));
     }
   }
 
