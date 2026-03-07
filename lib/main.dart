@@ -835,13 +835,13 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       if (!await file.exists()) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("⚠️ الملف غير موجود على الجهاز")));
+          const SnackBar(content: Text("الملف غير موجود على الجهاز")));
         return;
       }
       final ext = path.split('.').last.toLowerCase();
 
-      // ===== الصور: نفتحها داخل التطبيق =====
-      if (['jpg','jpeg','png','gif','webp','bmp','heic','heif'].contains(ext)) {
+      // الصور: نفتحها داخل التطبيق
+      if (['jpg','jpeg','png','gif','webp','bmp','heic'].contains(ext)) {
         if (!mounted) return;
         await Navigator.push(context, MaterialPageRoute(
           builder: (_) => _ImageViewerPage(imagePath: path),
@@ -849,80 +849,35 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
         return;
       }
 
-      // ===== PDF والفيديو: نحاول فتحها بتطبيق خارجي =====
-      // طريقة 1: uri مباشر
-      Uri uri;
-      if (Platform.isAndroid) {
-        // على أندرويد نحتاج content:// URI وليس file://
-        // نستخدم file:// ونترك النظام يتعامل معه
-        uri = Uri.parse('file://${Uri.encodeComponent(path).replaceAll('%2F', '/')}');
-      } else {
-        uri = Uri.file(path);
-      }
-
-      bool launched = false;
-      try {
-        launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } catch (_) {}
-
-      if (!launched) {
-        // طريقة 2: platformDefault
-        try {
-          launched = await launchUrl(uri, mode: LaunchMode.platformDefault);
-        } catch (_) {}
-      }
-
-      if (!launched) {
+      // الفيديو: نفتحه في صفحة السينما الداخلية
+      if (['mp4','mkv','avi','mov','webm','3gp'].contains(ext)) {
         if (!mounted) return;
-        // طريقة 3: أظهر Dialog فيه مسار الملف
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: Text("📂 ${ext.toUpperCase()}"),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text("لا يمكن فتح الملف تلقائياً.
-انسخي المسار وافتحيه يدوياً:",
-                  style: const TextStyle(fontSize: 14)),
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: SelectableText(path,
-                    style: const TextStyle(fontSize: 11)),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: path));
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("✅ تم نسخ المسار")));
-                },
-                child: const Text("نسخ المسار"),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text("إغلاق"),
-              ),
-            ],
-          ),
-        );
+        final name = path.split('/').last;
+        await Navigator.push(context, MaterialPageRoute(
+          builder: (_) => _VideoPlayerPage(videoPath: path, videoName: name),
+        ));
+        return;
+      }
+
+      // PDF وغيره: نفتح بتطبيق خارجي مع رسالة
+      final uri = Uri.file(path);
+      bool opened = false;
+      try { opened = await launchUrl(uri, mode: LaunchMode.externalApplication); } catch (_) {}
+      if (!opened) {
+        try { opened = await launchUrl(uri, mode: LaunchMode.platformDefault); } catch (_) {}
+      }
+      if (!opened && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("تعذّر الفتح - جرّبي تطبيقاً آخر")));
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("خطأ في فتح الملف: $e")));
+        SnackBar(content: Text("خطأ: $e")));
     }
   }
 
-  // ================ دوال الألعاب ================
+    // ================ دوال الألعاب ================
   Future<void> _addGame() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -4001,128 +3956,274 @@ class _VideoPlayerPage extends StatefulWidget {
   final String videoPath;
   final String videoName;
   const _VideoPlayerPage({required this.videoPath, required this.videoName});
-
   @override
   State<_VideoPlayerPage> createState() => _VideoPlayerPageState();
 }
 
-class _VideoPlayerPageState extends State<_VideoPlayerPage> {
-  bool _launched = false;
-  String _status = "جاري فتح الفيديو...";
+class _VideoPlayerPageState extends State<_VideoPlayerPage>
+    with TickerProviderStateMixin {
+  bool _isLoading = true;
+  bool _opened = false;
+  bool _showControls = true;
+  late AnimationController _pulseController;
+  late AnimationController _fadeController;
+  late Animation<double> _pulseAnim;
+  late Animation<double> _fadeAnim;
+  Timer? _hideTimer;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _openVideo());
+    _pulseController = AnimationController(
+      vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
+    _fadeController = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 600));
+    _pulseAnim = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut));
+    _fadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeIn));
+    _fadeController.forward();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _launchVideo());
   }
 
-  Future<void> _openVideo() async {
-    setState(() { _launched = false; _status = "جاري فتح الفيديو..."; });
-    try {
-      Uri uri;
-      if (Platform.isAndroid) {
-        uri = Uri.parse(
-          'file://${Uri.encodeComponent(widget.videoPath).replaceAll('%2F', '/')}');
-      } else {
-        uri = Uri.file(widget.videoPath);
-      }
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    _fadeController.dispose();
+    _hideTimer?.cancel();
+    super.dispose();
+  }
 
+  Future<void> _launchVideo() async {
+    setState(() => _isLoading = true);
+    await Future.delayed(const Duration(milliseconds: 800));
+    try {
+      final uri = Uri.file(widget.videoPath);
       bool ok = false;
-      try {
-        ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } catch (_) {}
-      if (!ok) {
-        try { ok = await launchUrl(uri, mode: LaunchMode.platformDefault); } catch (_) {}
-      }
-      if (mounted) {
-        setState(() {
-          _launched = ok;
-          _status = ok ? "يتم التشغيل في المشغّل الخارجي 🎬" : "تعذّر فتح الفيديو تلقائياً";
-        });
-      }
+      try { ok = await launchUrl(uri, mode: LaunchMode.externalApplication); } catch (_) {}
+      if (!ok) { try { ok = await launchUrl(uri, mode: LaunchMode.platformDefault); } catch (_) {} }
+      if (mounted) setState(() { _opened = ok; _isLoading = false; });
     } catch (e) {
-      if (mounted) setState(() => _status = "خطأ: $e");
+      if (mounted) setState(() { _isLoading = false; _opened = false; });
+    }
+  }
+
+  void _toggleControls() {
+    setState(() => _showControls = !_showControls);
+    if (_showControls) {
+      _hideTimer?.cancel();
+      _hideTimer = Timer(const Duration(seconds: 3),
+        () { if (mounted) setState(() => _showControls = false); });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final name = widget.videoName.replaceAll(RegExp(r'\.[^.]+$'), '');
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(widget.videoName,
-          style: const TextStyle(color: Colors.white, fontSize: 13),
-          overflow: TextOverflow.ellipsis),
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(30),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+      body: FadeTransition(
+        opacity: _fadeAnim,
+        child: GestureDetector(
+          onTap: _toggleControls,
+          child: Stack(
+            fit: StackFit.expand,
             children: [
+              // ===== خلفية سينمائية =====
               Container(
-                padding: const EdgeInsets.all(30),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade900.withOpacity(0.3),
-                  shape: BoxShape.circle,
-                ),
-                child: const Text("🎬", style: TextStyle(fontSize: 70)),
-              ),
-              const SizedBox(height: 24),
-              Text(_status,
-                style: TextStyle(
-                  color: _launched ? Colors.green.shade300 : Colors.white70,
-                  fontSize: 16),
-                textAlign: TextAlign.center),
-              const SizedBox(height: 8),
-              Text(widget.videoName,
-                style: const TextStyle(color: Colors.white38, fontSize: 12),
-                textAlign: TextAlign.center,
-                maxLines: 2, overflow: TextOverflow.ellipsis),
-              const SizedBox(height: 32),
-              ElevatedButton.icon(
-                onPressed: _openVideo,
-                icon: const Icon(Icons.play_circle_filled),
-                label: const Text("تشغيل"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.shade700,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(200, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(25)),
-                ),
-              ),
-              const SizedBox(height: 12),
-              if (!_launched) ...[
-                const Divider(color: Colors.white12, height: 30),
-                const Text("انسخي المسار وافتحيه يدوياً:",
-                  style: TextStyle(color: Colors.white38, fontSize: 12)),
-                const SizedBox(height: 6),
-                GestureDetector(
-                  onTap: () {
-                    Clipboard.setData(ClipboardData(text: widget.videoPath));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("✅ تم نسخ المسار")));
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white10,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(widget.videoPath,
-                      style: const TextStyle(color: Colors.white38, fontSize: 10),
-                      maxLines: 3, overflow: TextOverflow.ellipsis),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFF0a0a0a), Color(0xFF1a0010), Color(0xFF0a0a0a)],
                   ),
                 ),
-              ],
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("رجوع للسينما",
-                  style: TextStyle(color: Colors.white38)),
+              ),
+
+              // نقاط ضوء في الخلفية
+              ...List.generate(12, (i) {
+                final rand = Random(i * 13);
+                return Positioned(
+                  left: rand.nextDouble() * 400,
+                  top: rand.nextDouble() * 800,
+                  child: Container(
+                    width: rand.nextDouble() * 3 + 1,
+                    height: rand.nextDouble() * 3 + 1,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                );
+              }),
+
+              // ===== محتوى المركز =====
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // أيقونة الفيلم
+                    ScaleTransition(
+                      scale: _pulseAnim,
+                      child: Container(
+                        width: 140,
+                        height: 140,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(colors: [
+                            Colors.red.shade800.withOpacity(0.6),
+                            Colors.transparent,
+                          ]),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.red.shade700.withOpacity(0.4),
+                              blurRadius: 40,
+                              spreadRadius: 10,
+                            ),
+                          ],
+                        ),
+                        child: _isLoading
+                          ? const Center(
+                              child: CircularProgressIndicator(
+                                color: Colors.red, strokeWidth: 2))
+                          : Center(
+                              child: Icon(
+                                _opened
+                                  ? Icons.play_circle_fill
+                                  : Icons.error_outline,
+                                size: 80,
+                                color: _opened
+                                  ? Colors.white.withOpacity(0.9)
+                                  : Colors.red.shade300,
+                              ),
+                            ),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    // اسم الفيلم
+                    Text(name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w300,
+                        letterSpacing: 1,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+
+                    // الحالة
+                    Text(
+                      _isLoading
+                        ? "جاري تشغيل الفيديو..."
+                        : _opened
+                          ? "يعمل في المشغّل الخارجي"
+                          : "اضغطي لإعادة المحاولة",
+                      style: TextStyle(
+                        color: _opened
+                          ? Colors.green.shade300
+                          : Colors.white38,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+
+                    // زر تشغيل
+                    GestureDetector(
+                      onTap: _launchVideo,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 40, vertical: 14),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Colors.red.shade800, Colors.red.shade600]),
+                          borderRadius: BorderRadius.circular(30),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.red.shade700.withOpacity(0.5),
+                              blurRadius: 20,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.play_arrow, color: Colors.white, size: 24),
+                            SizedBox(width: 8),
+                            Text("تشغيل",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w500)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // ===== شريط علوي (يظهر/يختفي) =====
+              AnimatedOpacity(
+                opacity: _showControls ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 300),
+                child: Container(
+                  height: 100,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.black54, Colors.transparent],
+                    ),
+                  ),
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back_ios,
+                              color: Colors.white, size: 20),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                          Expanded(
+                            child: Text(name,
+                              style: const TextStyle(
+                                color: Colors.white, fontSize: 14),
+                              overflow: TextOverflow.ellipsis),
+                          ),
+                          // مؤشر التشغيل
+                          if (_opened)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.green.shade400, width: 1),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.fiber_manual_record,
+                                    color: Colors.green, size: 8),
+                                  SizedBox(width: 4),
+                                  Text("يعمل",
+                                    style: TextStyle(
+                                      color: Colors.green, fontSize: 11)),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
