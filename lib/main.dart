@@ -766,6 +766,18 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
               ],
             ),
           ),
+          // ✅ زر إغلاق القائمة
+          Builder(
+            builder: (ctx) => IconButton(
+              icon: const Icon(Icons.close, color: Colors.grey, size: 20),
+              tooltip: "إغلاق القائمة",
+              onPressed: () {
+                if (Scaffold.of(ctx).isDrawerOpen) {
+                  Navigator.pop(ctx);
+                }
+              },
+            ),
+          ),
         ],
       ),
     );
@@ -778,7 +790,13 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       selectedTileColor: Colors.pink.shade50,
       leading: Icon(icon, color: isSelected ? Colors.pink : Colors.black54),
       title: Text(title, style: TextStyle(color: isSelected ? Colors.pink : Colors.black87)),
-      onTap: () => setState(() => _selectedIndex = index),
+      onTap: () {
+        setState(() => _selectedIndex = index);
+        // ✅ إغلاق القائمة الجانبية تلقائياً إذا كانت مفتوحة كـ Drawer
+        if (Scaffold.of(context).isDrawerOpen) {
+          Navigator.pop(context);
+        }
+      },
     );
   }
 
@@ -1453,7 +1471,13 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       title: Text("✨ ركن آلاء الخاص",
         style: TextStyle(color: isSelected ? Colors.pinkAccent : Colors.black87,
           fontWeight: FontWeight.bold)),
-      onTap: () => setState(() => _selectedIndex = 10),
+      onTap: () {
+        setState(() => _selectedIndex = 10);
+        // ✅ إغلاق القائمة الجانبية تلقائياً
+        if (Scaffold.of(context).isDrawerOpen) {
+          Navigator.pop(context);
+        }
+      },
     );
   }
 
