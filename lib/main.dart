@@ -446,39 +446,102 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     }
   }
 
+  // ============================================================
+  // حفظ وتحميل جميع البيانات
+  // ============================================================
   Future<void> _loadSavedData() async {
     final prefs = await SharedPreferences.getInstance();
-    
-    // تحميل المهام
-    List<String>? savedTasks = prefs.getStringList('tasks');
-    if (savedTasks != null) {
-      setState(() {
-        alaaTasks = savedTasks.map((t) => Task(t)).toList();
-      });
-    }
-    
-    // تحميل المهام المشتركة
-    List<String>? savedCoupleTasks = prefs.getStringList('coupleTasks');
-    if (savedCoupleTasks != null) {
-      setState(() {
-        coupleTasks = savedCoupleTasks;
-      });
-    }
-    
-    // تحميل الكتابات
-    List<String>? savedProse = prefs.getStringList('proseWritings');
-    if (savedProse != null) {
-      setState(() {
-        proseWritings = savedProse;
-      });
-    }
-    
-    List<String>? savedPoetry = prefs.getStringList('poetryWritings');
-    if (savedPoetry != null) {
-      setState(() {
-        poetryWritings = savedPoetry;
-      });
-    }
+    if (!mounted) return;
+    setState(() {
+      final tasks = prefs.getStringList('tasks');
+      if (tasks != null) alaaTasks = tasks.map((t) => Task(t)).toList();
+      final couple = prefs.getStringList('coupleTasks');
+      if (couple != null) coupleTasks = couple;
+      final prose = prefs.getStringList('proseWritings');
+      if (prose != null) proseWritings = prose;
+      final poetry = prefs.getStringList('poetryWritings');
+      if (poetry != null) poetryWritings = poetry;
+      // الأغاني
+      final songNames = prefs.getStringList('songNames') ?? [];
+      final songPaths = prefs.getStringList('songPaths') ?? [];
+      if (songNames.length == songPaths.length && songNames.isNotEmpty) {
+        songs = List.generate(songNames.length, (i) => Song(songNames[i], songPaths[i]));
+      }
+      // الروايات
+      final novelNames = prefs.getStringList('novelNames') ?? [];
+      final novelPaths = prefs.getStringList('novelPaths') ?? [];
+      final novelTypes = prefs.getStringList('novelTypes') ?? [];
+      final novelNotes = prefs.getStringList('novelNotes') ?? [];
+      if (novelNames.length == novelPaths.length && novelNames.isNotEmpty) {
+        novels = List.generate(novelNames.length, (i) => Novel(
+          novelNames[i], novelPaths[i],
+          i < novelTypes.length ? novelTypes[i] : 'pdf',
+          note: i < novelNotes.length ? novelNotes[i] : '',
+        ));
+      }
+      // الألعاب
+      final gameNames = prefs.getStringList('gameNames') ?? [];
+      final gamePaths = prefs.getStringList('gamePaths') ?? [];
+      if (gameNames.length == gamePaths.length && gameNames.isNotEmpty) {
+        games = List.generate(gameNames.length, (i) => Game(gameNames[i], gamePaths[i]));
+      }
+      // الذكريات
+      final memPaths = prefs.getStringList('memories') ?? [];
+      if (memPaths.isNotEmpty) memories = memPaths.map((p) => MemoryImage(p)).toList();
+      // السينما
+      final cinema = prefs.getStringList('cinemaVideos');
+      if (cinema != null) _cinemaVideos = cinema;
+      // التمريض
+      final nFiles = prefs.getStringList('nursingFiles');
+      if (nFiles != null) _nursingFiles = nFiles;
+      final nNotes = prefs.getStringList('nursingNotes');
+      if (nNotes != null) _nursingNotes = nNotes;
+      final schedSubj = prefs.getStringList('schedSubjects') ?? [];
+      final schedTime = prefs.getStringList('schedTimes') ?? [];
+      if (schedSubj.isNotEmpty) {
+        _nursingSchedule = List.generate(schedSubj.length, (i) => {
+          'subject': schedSubj[i],
+          'time': i < schedTime.length ? schedTime[i] : '',
+        });
+      }
+      // الرسائل المقفلة
+      final lmTitles   = prefs.getStringList('lmTitles')   ?? [];
+      final lmContents = prefs.getStringList('lmContents') ?? [];
+      final lmDates    = prefs.getStringList('lmDates')    ?? [];
+      final lmCreated  = prefs.getStringList('lmCreated')  ?? [];
+      if (lmTitles.isNotEmpty) {
+        _lockedMessages = List.generate(lmTitles.length, (i) => {
+          'title':     lmTitles[i],
+          'content':   i < lmContents.length ? lmContents[i] : '',
+          'openDate':  i < lmDates.length    ? lmDates[i]    : '',
+          'createdAt': i < lmCreated.length  ? lmCreated[i]  : '',
+        });
+      }
+      // ركن آلاء
+      final persNames = prefs.getStringList('persNames') ?? [];
+      final persDescs = prefs.getStringList('persDescs') ?? [];
+      if (persNames.isNotEmpty) {
+        _alaaPersonalities = List.generate(persNames.length, (i) => {
+          'name': persNames[i],
+          'desc': i < persDescs.length ? persDescs[i] : '',
+        });
+      }
+      final goalTexts = prefs.getStringList('goalTexts') ?? [];
+      final goalDones = prefs.getStringList('goalDones') ?? [];
+      if (goalTexts.isNotEmpty) {
+        _alaaGoals = List.generate(goalTexts.length, (i) => {
+          'goal': goalTexts[i],
+          'done': i < goalDones.length ? goalDones[i] : 'false',
+        });
+      }
+      final alaaQ = prefs.getStringList('alaaQuotes');
+      if (alaaQ != null) _alaaQuotes = alaaQ;
+      // عداد الأيام
+      final dateStr = prefs.getString('specialDate');
+      if (dateStr != null) _specialDate = DateTime.tryParse(dateStr);
+      final dateLabel = prefs.getString('specialDateLabel');
+      if (dateLabel != null) _specialDateLabel = dateLabel;
+    });
   }
 
   Future<void> _saveTasks() async {
@@ -487,6 +550,36 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     await prefs.setStringList('coupleTasks', coupleTasks);
     await prefs.setStringList('proseWritings', proseWritings);
     await prefs.setStringList('poetryWritings', poetryWritings);
+  }
+
+  Future<void> _saveAll() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('songNames',  songs.map((s) => s.name).toList());
+    await prefs.setStringList('songPaths',  songs.map((s) => s.path).toList());
+    await prefs.setStringList('novelNames', novels.map((n) => n.name).toList());
+    await prefs.setStringList('novelPaths', novels.map((n) => n.path).toList());
+    await prefs.setStringList('novelTypes', novels.map((n) => n.type).toList());
+    await prefs.setStringList('novelNotes', novels.map((n) => n.note).toList());
+    await prefs.setStringList('gameNames',  games.map((g) => g.name).toList());
+    await prefs.setStringList('gamePaths',  games.map((g) => g.path).toList());
+    await prefs.setStringList('memories',   memories.map((m) => m.path).toList());
+    await prefs.setStringList('cinemaVideos', _cinemaVideos);
+    await prefs.setStringList('nursingFiles', _nursingFiles);
+    await prefs.setStringList('nursingNotes', _nursingNotes);
+    await prefs.setStringList('schedSubjects', _nursingSchedule.map((e) => e['subject'] ?? '').toList());
+    await prefs.setStringList('schedTimes',    _nursingSchedule.map((e) => e['time']    ?? '').toList());
+    await prefs.setStringList('lmTitles',   _lockedMessages.map((m) => m['title']     ?? '').toList());
+    await prefs.setStringList('lmContents', _lockedMessages.map((m) => m['content']   ?? '').toList());
+    await prefs.setStringList('lmDates',    _lockedMessages.map((m) => m['openDate']  ?? '').toList());
+    await prefs.setStringList('lmCreated',  _lockedMessages.map((m) => m['createdAt'] ?? '').toList());
+    await prefs.setStringList('persNames', _alaaPersonalities.map((p) => p['name'] ?? '').toList());
+    await prefs.setStringList('persDescs', _alaaPersonalities.map((p) => p['desc'] ?? '').toList());
+    await prefs.setStringList('goalTexts', _alaaGoals.map((g) => g['goal'] ?? '').toList());
+    await prefs.setStringList('goalDones', _alaaGoals.map((g) => g['done'] ?? 'false').toList());
+    await prefs.setStringList('alaaQuotes', _alaaQuotes);
+    if (_specialDate != null) await prefs.setString('specialDate', _specialDate!.toIso8601String());
+    await prefs.setString('specialDateLabel', _specialDateLabel);
+    await _saveTasks();
   }
 
   void _initDefaultData() {
@@ -755,6 +848,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
               result.files.single.extension ?? 'pdf',
             ));
           });
+          _saveAll();
           
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text("✅ تمت إضافة: ${result.files.single.name}")),
@@ -890,6 +984,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
             result.files.single.path!,
           ));
         });
+        _saveAll();
       }
     } catch (e) {
       if (!mounted) return; // ✅ إصلاح
@@ -942,6 +1037,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
             _isPlaying = true;
             songs.add(Song(result.files.single.name, filePath));
           });
+          _saveAll();
         } else {
           if (!mounted) return; // ✅ إصلاح
           _showWindowsPermissionDialog();
@@ -966,6 +1062,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
           if (!mounted) return; // ✅ إصلاح
           setState(() {
             memories.add(MemoryImage(result.files.first.path!));
+            _saveAll();
           });
         } else {
           if (!mounted) return; // ✅ إصلاح
@@ -2031,6 +2128,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                   ),
                   onDismissed: (_) {
                     setState(() => novels.removeAt(index));
+            _saveAll();
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text("🗑️ تم حذف الرواية")),
                     );
@@ -2092,6 +2190,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                             onPressed: () {
                               setState(() => memories.removeAt(index));
+                              _saveAll();
                               Navigator.pop(ctx);
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text("🗑️ تم حذف الصورة")),
@@ -2161,6 +2260,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                       child: GestureDetector(
                         onTap: () {
                           setState(() => games.removeAt(index));
+                          _saveAll();
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text("🗑️ تم حذف اللعبة")),
                           );
@@ -2302,6 +2402,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                     ),
                     onDismissed: (_) {
                       setState(() => songs.removeAt(index));
+                      _saveAll();
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text("🗑️ تم حذف الأغنية")),
                       );
@@ -2623,7 +2724,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
               padding: const EdgeInsets.only(right: 16),
               child: const Icon(Icons.delete, color: Colors.white),
             ),
-            onDismissed: (_) => setState(() => _alaaPersonalities.removeAt(e.key)),
+            onDismissed: (_) => setState(() { _alaaPersonalities.removeAt(e.key); _saveAll(); }),
             child: Card(
               margin: const EdgeInsets.only(bottom: 8),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -2714,6 +2815,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                   "name": nameCtrl.text,
                   "desc": descCtrl.text,
                 }));
+                _saveAll();
                 Navigator.pop(ctx);
               }
             },
@@ -2747,6 +2849,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
             onPressed: () {
               if (ctrl.text.isNotEmpty) {
                 setState(() => _alaaGoals.add({"goal": ctrl.text, "done": "false"}));
+                _saveAll();
                 Navigator.pop(ctx);
               }
             },
@@ -2781,6 +2884,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
             onPressed: () {
               if (ctrl.text.isNotEmpty) {
                 setState(() => _alaaQuotes.add(ctrl.text));
+                _saveAll();
                 Navigator.pop(ctx);
               }
             },
@@ -2952,7 +3056,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: TextButton.icon(
-                          onPressed: () => setState(() => _nursingSchedule.clear()),
+                          onPressed: () => setState(() => _nursingSchedule.clear()); _saveAll(),
                           icon: const Icon(Icons.refresh, color: Colors.red, size: 18),
                           label: const Text("مسح الجدول",
                             style: TextStyle(color: Colors.red)),
@@ -2982,6 +3086,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                               if (_nursingNoteController.text.isNotEmpty) {
                                 setState(() {
                                   _nursingNotes.insert(0, _nursingNoteController.text);
+                  _saveAll();
                                   _nursingNoteController.clear();
                                 });
                               }
@@ -3028,7 +3133,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                                 background: Container(color: Colors.red, alignment: Alignment.centerRight,
                                   padding: const EdgeInsets.only(right: 16),
                                   child: const Icon(Icons.delete, color: Colors.white)),
-                                onDismissed: (_) => setState(() => _nursingFiles.removeAt(e.key)),
+                                onDismissed: (_) { setState(() => _nursingFiles.removeAt(e.key)); _saveAll(); },
                                 child: Card(
                                   child: ListTile(
                                     leading: Icon(
@@ -3052,7 +3157,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                                 background: Container(color: Colors.red, alignment: Alignment.centerRight,
                                   padding: const EdgeInsets.only(right: 16),
                                   child: const Icon(Icons.delete, color: Colors.white)),
-                                onDismissed: (_) => setState(() => _nursingNotes.removeAt(e.key)),
+                                onDismissed: (_) { setState(() => _nursingNotes.removeAt(e.key)); _saveAll(); },
                                 child: Card(
                                   child: ListTile(
                                     leading: const Icon(Icons.note, color: Colors.blue),
@@ -3133,6 +3238,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                   "day": dayCtrl.text,
                   "time": timeCtrl.text,
                 }));
+                _saveAll();
                 Navigator.pop(ctx);
               }
             },
@@ -3149,6 +3255,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       if (result != null && result.files.single.path != null) {
         if (!mounted) return;
         setState(() => _nursingFiles.insert(0, result.files.single.path!));
+        _saveAll();
       }
     } catch (e) { if (!mounted) return; }
   }
@@ -3160,6 +3267,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       if (result != null && result.files.single.path != null) {
         if (!mounted) return;
         setState(() => _nursingFiles.insert(0, result.files.single.path!));
+        _saveAll();
       }
     } catch (e) { if (!mounted) return; }
   }
@@ -3464,7 +3572,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
               );
               if (picked != null) {
                 if (!mounted) return;
-                setState(() => _specialDate = picked);
+                setState(() => _specialDate = picked); _saveAll();
               }
             },
             icon: const Icon(Icons.calendar_today),
@@ -3487,7 +3595,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                   actions: [
                     ElevatedButton(
                       onPressed: () {
-                        setState(() => _specialDateLabel = ctrl.text);
+                        setState(() => _specialDateLabel = ctrl.text); _saveAll();
                         Navigator.pop(ctx);
                       },
                       child: const Text("حفظ"),
@@ -3556,7 +3664,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                         padding: const EdgeInsets.only(right: 16),
                         child: const Icon(Icons.delete, color: Colors.white),
                       ),
-                      onDismissed: (_) => setState(() => _lockedMessages.removeAt(i)),
+                      onDismissed: (_) { setState(() => _lockedMessages.removeAt(i)); _saveAll(); },
                       child: Card(
                         margin: const EdgeInsets.only(bottom: 10),
                         child: ListTile(
@@ -3706,8 +3814,10 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
               setState(() {
                 while (_nursingSchedule.length <= rowIndex) {
                   _nursingSchedule.add({"subject": "", "time": ""});
+                  _saveAll();
                 }
                 _nursingSchedule[rowIndex][field] = ctrl.text;
+                _saveAll();
               });
               Navigator.pop(ctx);
             },
@@ -3809,7 +3919,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                         ),
                         child: const Icon(Icons.delete, color: Colors.white),
                       ),
-                      onDismissed: (_) => setState(() => _cinemaVideos.removeAt(i)),
+                      onDismissed: (_) { setState(() => _cinemaVideos.removeAt(i)); _saveAll(); },
                       child: GestureDetector(
                         onTap: () => _playCinemaVideo(path, name),
                         child: Container(
@@ -3869,6 +3979,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       if (result != null && result.files.single.path != null) {
         if (!mounted) return;
         setState(() => _cinemaVideos.insert(0, result.files.single.path!));
+        _saveAll();
       }
     } catch (e) {
       if (!mounted) return;
