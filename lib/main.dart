@@ -3056,7 +3056,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: TextButton.icon(
-                          onPressed: () => setState(() => _nursingSchedule.clear()); _saveAll(),
+                          onPressed: () { setState(() => _nursingSchedule.clear()); _saveAll(); },
                           icon: const Icon(Icons.refresh, color: Colors.red, size: 18),
                           label: const Text("مسح الجدول",
                             style: TextStyle(color: Colors.red)),
