@@ -91,6 +91,39 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
   // متغيرات الحالة المزاجية
   AlaaMood currentMood = AlaaMood.peaceful;
   bool _isSidebarOpen = true; // ✅ للتحكم في إظهار/إخفاء القائمة
+  bool _isPlaying = false; // ✅ حالة تشغيل/إيقاف الموسيقى
+
+  // ================ متغيرات الورد اليومي ================
+  int _currentDailyMessageIndex = 0;
+  final List<Map<String, String>> _husbandMessages = [
+    {"msg": "أحبكِ زوجتي 💕", "sub": "من أحب الناس إلى قلبك"},
+    {"msg": "أعشقكِ أميرتي 👑", "sub": "أنتِ تاج فوق رأسي"},
+    {"msg": "يوم جيد دلوعتي 🌸", "sub": "أتمنى يومكِ مليء بالسعادة"},
+    {"msg": "نورتِ يومي يا آلاء ☀️", "sub": "ابتسامتكِ أجمل شيء"},
+    {"msg": "فخور بكِ كل يوم 🌟", "sub": "ستكوني ممرضة رائعة"},
+    {"msg": "أنتِ قوتي يا حياتي 💪", "sub": "معكِ أستطيع كل شيء"},
+    {"msg": "اشتقت إليكِ 💌", "sub": "ما أجمل أن تكوني في حياتي"},
+  ];
+
+  // ================ متغيرات البومودورو ================
+  Timer? _pomodoroTimer;
+  int _pomodoroSeconds = 25 * 60;
+  bool _pomodoroRunning = false;
+  bool _isBreakTime = false;
+  int _pomodoroCount = 0;
+
+  // ================ متغيرات عداد الأيام ================
+  DateTime? _specialDate;
+  String _specialDateLabel = "تاريخ الزواج 💍";
+
+  // ================ متغيرات الرسائل المقفلة ================
+  List<Map<String, String>> _lockedMessages = [];
+
+  // ================ متغيرات صفحة التمريض ================
+  List<Map<String, String>> _nursingSchedule = [];
+  List<String> _nursingNotes = [];
+  List<String> _nursingFiles = [];
+  final TextEditingController _nursingNoteController = TextEditingController();
   String? lastAnalysisResult;
   
   // متغيرات نجوم التأمل
@@ -631,6 +664,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
           if (!mounted) return; // ✅ إصلاح
           setState(() {
             currentSongName = result.files.single.name;
+            _isPlaying = true;
             songs.add(Song(result.files.single.name, filePath));
           });
         } else {
@@ -727,6 +761,11 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       case 3: return [const Color(0xFF957DAD), const Color(0xFFD291BC)];
       case 4: return [const Color(0xFFE2D1C3), const Color(0xFFF9F3E6)];
       case 5: return [const Color(0xFFFBC2C2), const Color(0xFFFFE6E6)];
+      case 11: return [const Color(0xFFE3F2FD), const Color(0xFFBBDEFB)];
+      case 12: return [const Color(0xFF1a1a2e), const Color(0xFF16213e)];
+      case 13: return [const Color(0xFFF3E5F5), const Color(0xFFE1BEE7)];
+      case 14: return [const Color(0xFFE8F5E9), const Color(0xFFC8E6C9)];
+      case 15: return [const Color(0xFFFCE4EC), const Color(0xFFF8BBD9)];
       default: return [const Color(0xFFFDEEF2), const Color(0xFFFFF0F5)];
     }
   }
@@ -762,6 +801,12 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                 _sidebarItem(7, "معرض الذكريات", Icons.photo_library),
                 _sidebarItem(8, "ألعابي", Icons.videogame_asset),
                 _sidebarItem(9, "الموسيقى", Icons.music_note),
+                _sidebarItem(11, "📚 التمريض", Icons.medical_services),
+                const Divider(),
+                _sidebarItem(12, "🌙 ورد يومي", Icons.favorite_border),
+                _sidebarItem(13, "⏱️ بومودورو", Icons.timer),
+                _sidebarItem(14, "📅 عداد الأيام", Icons.calendar_today),
+                _sidebarItem(15, "💌 رسائل مقفلة", Icons.lock),
                 const Divider(),
                 _alaaCornerSidebarItem(),
               ],
@@ -826,24 +871,68 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
 
   Widget _buildCassetteButton() {
     return Container(
-      padding: const EdgeInsets.all(16),
-      child: InkWell(
-        onTap: _showMusicMenu,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(30),
-          ),
-          child: const Row(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.1), blurRadius: 8)],
+      ),
+      child: Column(
+        children: [
+          // اسم الأغنية الحالية
+          if (currentSongName != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                "🎵 ${currentSongName!.length > 20 ? currentSongName!.substring(0, 20) + '...' : currentSongName!}",
+                style: const TextStyle(fontSize: 10, color: Colors.pink),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          // أزرار التحكم
+          Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.album, color: Colors.pink, size: 20),
-              SizedBox(width: 8),
-              Text("كاسيت آلاء", style: TextStyle(color: Colors.pink, fontWeight: FontWeight.bold)),
+              // زر إضافة أغنية
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline, color: Colors.pink, size: 20),
+                tooltip: "إضافة أغنية",
+                onPressed: _pickAndPlayMusic,
+              ),
+              // زر تشغيل/إيقاف
+              GestureDetector(
+                onTap: () async {
+                  if (_isPlaying) {
+                    await _player.pause();
+                    setState(() => _isPlaying = false);
+                  } else {
+                    await _player.resume();
+                    setState(() => _isPlaying = true);
+                  }
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: _isPlaying ? Colors.pink : Colors.pink.shade100,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    _isPlaying ? Icons.pause : Icons.play_arrow,
+                    color: _isPlaying ? Colors.white : Colors.pink,
+                    size: 24,
+                  ),
+                ),
+              ),
+              // زر فتح قائمة الموسيقى
+              IconButton(
+                icon: const Icon(Icons.queue_music, color: Colors.pink, size: 20),
+                tooltip: "قائمة الأغاني",
+                onPressed: _showMusicMenu,
+              ),
             ],
           ),
-        ),
+          const Text("كاسيت آلاء 🎀", style: TextStyle(fontSize: 10, color: Colors.pink)),
+        ],
       ),
     );
   }
@@ -861,6 +950,11 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       case 8: return _buildGamesPage();
       case 9: return _buildMusicPage();
       case 10: return _buildAlaaCornerPage();
+      case 11: return _buildNursingPage();
+      case 12: return _buildDailyWirdPage();
+      case 13: return _buildPomodoroPage();
+      case 14: return _buildDayCounterPage();
+      case 15: return _buildLockedMessagesPage();
       default: return _buildComingSoon();
     }
   }
@@ -1162,10 +1256,26 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
           const SizedBox(height: 15),
           Expanded(child: ListView.builder(
             itemCount: writings.length,
-            itemBuilder: (context, index) => Card(
-              child: ListTile(
-                leading: const Icon(Icons.description),
-                title: Text(writings[index]),
+            itemBuilder: (context, index) => Dismissible(
+              key: Key('${writings[index]}_$index'),
+              direction: DismissDirection.endToStart,
+              background: Container(
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: 20),
+                color: Colors.red.shade400,
+                child: const Icon(Icons.delete_sweep, color: Colors.white, size: 28),
+              ),
+              onDismissed: (_) {
+                setState(() => writings.removeAt(index));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("🗑️ تم الحذف")),
+                );
+              },
+              child: Card(
+                child: ListTile(
+                  leading: const Icon(Icons.description),
+                  title: Text(writings[index]),
+                ),
               ),
             ),
           )),
@@ -1232,18 +1342,40 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
             ? const Center(child: Text("أضيفي روايتكِ الأولى!"))
             : ListView.builder(
                 itemCount: novels.length,
-                itemBuilder: (context, index) => Card(
-                  child: ListTile(
-                    leading: Icon(
-                      novels[index].type == 'pdf' ? Icons.picture_as_pdf : Icons.description,
-                      color: novels[index].type == 'pdf' ? Colors.red : Colors.blue,
+                itemBuilder: (context, index) => Dismissible(
+                  key: Key(novels[index].path),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 20),
+                    color: Colors.red.shade400,
+                    child: const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.delete_sweep, color: Colors.white, size: 30),
+                        Text("حذف", style: TextStyle(color: Colors.white, fontSize: 12)),
+                      ],
                     ),
-                    title: Text(novels[index].name),
-                    subtitle: novels[index].note.isNotEmpty ? Text(novels[index].note) : null,
-                    onTap: () => _viewFile(novels[index].path),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.note_add),
-                      onPressed: () => _openNotePaper(index),
+                  ),
+                  onDismissed: (_) {
+                    setState(() => novels.removeAt(index));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("🗑️ تم حذف الرواية")),
+                    );
+                  },
+                  child: Card(
+                    child: ListTile(
+                      leading: Icon(
+                        novels[index].type == 'pdf' ? Icons.picture_as_pdf : Icons.description,
+                        color: novels[index].type == 'pdf' ? Colors.red : Colors.blue,
+                      ),
+                      title: Text(novels[index].name),
+                      subtitle: novels[index].note.isNotEmpty ? Text(novels[index].note) : null,
+                      onTap: () => _viewFile(novels[index].path),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.note_add),
+                        onPressed: () => _openNotePaper(index),
+                      ),
                     ),
                   ),
                 ),
@@ -1275,7 +1407,32 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                   mainAxisSpacing: 15,
                 ),
                 itemCount: memories.length,
-                itemBuilder: (context, index) => _buildMemoryFrame(memories[index].path),
+                itemBuilder: (context, index) => GestureDetector(
+                  onLongPress: () {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text("🗑️ حذف الصورة"),
+                        content: const Text("هل تريدين حذف هذه الذكرى؟"),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("إلغاء")),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                            onPressed: () {
+                              setState(() => memories.removeAt(index));
+                              Navigator.pop(ctx);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("🗑️ تم حذف الصورة")),
+                              );
+                            },
+                            child: const Text("حذف", style: TextStyle(color: Colors.white)),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  child: _buildMemoryFrame(memories[index].path),
+                ),
               )),
         ],
       ),
@@ -1323,9 +1480,27 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                   mainAxisSpacing: 10,
                 ),
                 itemCount: games.length,
-                itemBuilder: (context, index) => _gameSticker(
-                  games[index].name,
-                  () => _launchGame(games[index].path),
+                itemBuilder: (context, index) => Stack(
+                  children: [
+                    _gameSticker(games[index].name, () => _launchGame(games[index].path)),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() => games.removeAt(index));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("🗑️ تم حذف اللعبة")),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                          child: const Icon(Icons.close, color: Colors.white, size: 14),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               )),
         ],
@@ -1360,17 +1535,138 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       child: Column(
         children: [
           const Text("🎵 مكتبة الموسيقى", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          // مشغل الأغنية الحالية
           if (currentSongName != null)
             Container(
-              padding: const EdgeInsets.all(10),
-              color: Colors.pink.shade50,
-              child: Text("🎵 الآن: $currentSongName"),
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [Colors.pink.shade200, Colors.purple.shade200]),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Column(
+                children: [
+                  Text("🎵 $currentSongName",
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.skip_previous, color: Colors.white, size: 30),
+                        onPressed: () async => await _player.seek(Duration.zero),
+                      ),
+                      GestureDetector(
+                        onTap: () async {
+                          if (_isPlaying) {
+                            await _player.pause();
+                            setState(() => _isPlaying = false);
+                          } else {
+                            await _player.resume();
+                            setState(() => _isPlaying = true);
+                          }
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.all(12),
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            _isPlaying ? Icons.pause : Icons.play_arrow,
+                            color: Colors.pink,
+                            size: 32,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.stop, color: Colors.white, size: 30),
+                        onPressed: () async {
+                          await _player.stop();
+                          setState(() {
+                            _isPlaying = false;
+                            currentSongName = null;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           const SizedBox(height: 20),
           ElevatedButton.icon(
             onPressed: _pickAndPlayMusic,
-            icon: const Icon(Icons.library_music),
-            label: const Text("اختيار وتشغيل موسيقى"),
+            icon: const Icon(Icons.add),
+            label: const Text("إضافة أغنية"),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.pink, foregroundColor: Colors.white),
+          ),
+          const SizedBox(height: 15),
+          // قائمة الأغاني مع السحب للحذف
+          Expanded(
+            child: songs.isEmpty
+              ? const Center(child: Text("أضيفي أغانيكِ المفضلة! 🎵"))
+              : ListView.builder(
+                  itemCount: songs.length,
+                  itemBuilder: (context, index) => Dismissible(
+                    key: Key(songs[index].path),
+                    direction: DismissDirection.endToStart,
+                    background: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 20),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade400,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.delete_sweep, color: Colors.white, size: 30),
+                          Text("حذف", style: TextStyle(color: Colors.white, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    onDismissed: (_) {
+                      setState(() => songs.removeAt(index));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("🗑️ تم حذف الأغنية")),
+                      );
+                    },
+                    child: Card(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.pink.shade100,
+                          child: const Icon(Icons.music_note, color: Colors.pink),
+                        ),
+                        title: Text(songs[index].name),
+                        trailing: IconButton(
+                          icon: Icon(
+                            currentSongName == songs[index].name && _isPlaying
+                              ? Icons.pause_circle
+                              : Icons.play_circle,
+                            color: Colors.pink,
+                            size: 30,
+                          ),
+                          onPressed: () async {
+                            if (currentSongName == songs[index].name && _isPlaying) {
+                              await _player.pause();
+                              setState(() => _isPlaying = false);
+                            } else {
+                              await _player.play(DeviceFileSource(songs[index].path));
+                              setState(() {
+                                currentSongName = songs[index].name;
+                                _isPlaying = true;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
           ),
         ],
       ),
@@ -1427,6 +1723,8 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     _proseController.dispose();
     _poetryController.dispose();
     _feelingController.dispose();
+    _nursingNoteController.dispose();
+    _pomodoroTimer?.cancel();
     _player.dispose();
     super.dispose();
   }
@@ -1617,6 +1915,777 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Text(title,
         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.pink.shade800)),
+    );
+  }
+
+  // ================================================================
+  // ================ 1. صفحة التمريض ================================
+  // ================================================================
+  Widget _buildNursingPage() {
+    final subjects = ["تشريح", "فسيولوجيا", "أمراض باطنية", "تمريض جراحي", "صيدلة", "أخلاقيات مهنية"];
+    final days = ["السبت", "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس"];
+
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        children: [
+          Container(
+            color: Colors.blue.shade700,
+            child: const TabBar(
+              indicatorColor: Colors.white,
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.white60,
+              tabs: [
+                Tab(icon: Icon(Icons.calendar_month), text: "الجدول الدراسي"),
+                Tab(icon: Icon(Icons.note_alt), text: "مذكرة التمريض"),
+              ],
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                // ======= تاب الجدول =======
+                SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(colors: [Colors.blue.shade700, Colors.blue.shade400]),
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.school, color: Colors.white),
+                            SizedBox(width: 8),
+                            Text("جدول آلاء الدراسي 📚",
+                              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // الجدول
+                      Table(
+                        border: TableBorder.all(color: Colors.blue.shade200, borderRadius: BorderRadius.circular(8)),
+                        columnWidths: const {0: FlexColumnWidth(1.2), 1: FlexColumnWidth(2)},
+                        children: [
+                          TableRow(
+                            decoration: BoxDecoration(color: Colors.blue.shade100),
+                            children: const [
+                              Padding(padding: EdgeInsets.all(8), child: Text("اليوم", style: TextStyle(fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+                              Padding(padding: EdgeInsets.all(8), child: Text("المادة", style: TextStyle(fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
+                            ],
+                          ),
+                          ...List.generate(days.length, (i) => TableRow(
+                            decoration: BoxDecoration(color: i.isEven ? Colors.white : Colors.blue.shade50),
+                            children: [
+                              Padding(padding: const EdgeInsets.all(8),
+                                child: Text(days[i], textAlign: TextAlign.center,
+                                  style: const TextStyle(fontWeight: FontWeight.w500))),
+                              Padding(padding: const EdgeInsets.all(8),
+                                child: Text(i < subjects.length ? subjects[i] : "—",
+                                  textAlign: TextAlign.center)),
+                            ],
+                          )),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        onPressed: _addNursingScheduleItem,
+                        icon: const Icon(Icons.add),
+                        label: const Text("تعديل الجدول"),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade700, foregroundColor: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // ======= تاب المذكرة =======
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      // حقل كتابة الملاحظة
+                      TextField(
+                        controller: _nursingNoteController,
+                        maxLines: 3,
+                        decoration: InputDecoration(
+                          hintText: "اكتبي ملاحظاتك الدراسية هنا يا آلاء...",
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.save, color: Colors.blue),
+                            onPressed: () {
+                              if (_nursingNoteController.text.isNotEmpty) {
+                                setState(() {
+                                  _nursingNotes.insert(0, _nursingNoteController.text);
+                                  _nursingNoteController.clear();
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      // أزرار إضافة الملفات
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _addNursingImage,
+                              icon: const Icon(Icons.add_photo_alternate),
+                              label: const Text("إضافة صورة"),
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _addNursingPdf,
+                              icon: const Icon(Icons.picture_as_pdf),
+                              label: const Text("إضافة PDF"),
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      // قائمة الملفات والملاحظات
+                      Expanded(
+                        child: ListView(
+                          children: [
+                            if (_nursingFiles.isNotEmpty) ...[
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8),
+                                child: Text("📎 الملفات المرفقة", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                              ),
+                              ..._nursingFiles.asMap().entries.map((e) => Dismissible(
+                                key: Key('nfile_\${e.key}'),
+                                direction: DismissDirection.endToStart,
+                                background: Container(color: Colors.red, alignment: Alignment.centerRight,
+                                  padding: const EdgeInsets.only(right: 16),
+                                  child: const Icon(Icons.delete, color: Colors.white)),
+                                onDismissed: (_) => setState(() => _nursingFiles.removeAt(e.key)),
+                                child: Card(
+                                  child: ListTile(
+                                    leading: Icon(
+                                      e.value.endsWith('.pdf') ? Icons.picture_as_pdf : Icons.image,
+                                      color: e.value.endsWith('.pdf') ? Colors.red : Colors.green,
+                                    ),
+                                    title: Text(e.value.split('/').last),
+                                    onTap: () => _viewFile(e.value),
+                                  ),
+                                ),
+                              )),
+                            ],
+                            if (_nursingNotes.isNotEmpty) ...[
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8),
+                                child: Text("📝 ملاحظاتي", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                              ),
+                              ..._nursingNotes.asMap().entries.map((e) => Dismissible(
+                                key: Key('nnote_\${e.key}'),
+                                direction: DismissDirection.endToStart,
+                                background: Container(color: Colors.red, alignment: Alignment.centerRight,
+                                  padding: const EdgeInsets.only(right: 16),
+                                  child: const Icon(Icons.delete, color: Colors.white)),
+                                onDismissed: (_) => setState(() => _nursingNotes.removeAt(e.key)),
+                                child: Card(
+                                  child: ListTile(
+                                    leading: const Icon(Icons.note, color: Colors.blue),
+                                    title: Text(e.value),
+                                  ),
+                                ),
+                              )),
+                            ],
+                            if (_nursingNotes.isEmpty && _nursingFiles.isEmpty)
+                              const Center(
+                                child: Padding(
+                                  padding: EdgeInsets.all(40),
+                                  child: Text("أضيفي ملاحظاتكِ وملفاتكِ الدراسية 📚",
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(color: Colors.grey)),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _addNursingScheduleItem() {
+    if (!mounted) return;
+    final dayCtrl = TextEditingController();
+    final subjectCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("إضافة للجدول"),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: dayCtrl, decoration: const InputDecoration(hintText: "اليوم")),
+          const SizedBox(height: 8),
+          TextField(controller: subjectCtrl, decoration: const InputDecoration(hintText: "المادة")),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("إلغاء")),
+          ElevatedButton(
+            onPressed: () {
+              setState(() => _nursingSchedule.add({"day": dayCtrl.text, "subject": subjectCtrl.text}));
+              Navigator.pop(ctx);
+            },
+            child: const Text("إضافة"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _addNursingImage() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image);
+      if (result != null && result.files.single.path != null) {
+        if (!mounted) return;
+        setState(() => _nursingFiles.insert(0, result.files.single.path!));
+      }
+    } catch (e) { if (!mounted) return; }
+  }
+
+  Future<void> _addNursingPdf() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom, allowedExtensions: ['pdf']);
+      if (result != null && result.files.single.path != null) {
+        if (!mounted) return;
+        setState(() => _nursingFiles.insert(0, result.files.single.path!));
+      }
+    } catch (e) { if (!mounted) return; }
+  }
+
+  // ================================================================
+  // ================ 2. صفحة الورد اليومي ==========================
+  // ================================================================
+  Widget _buildDailyWirdPage() {
+    final msg = _husbandMessages[DateTime.now().weekday % _husbandMessages.length];
+    final loving = _husbandMessages[_currentDailyMessageIndex];
+
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // رسالة الزوج اليومية
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(30),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF1a1a2e), Color(0xFF16213e)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
+            child: Column(
+              children: [
+                const Icon(Icons.favorite, color: Colors.pink, size: 50),
+                const SizedBox(height: 16),
+                const Text("💌 رسالة من زوجكِ",
+                  style: TextStyle(color: Colors.white60, fontSize: 14)),
+                const SizedBox(height: 12),
+                Text(loving["msg"]!,
+                  style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center),
+                const SizedBox(height: 8),
+                Text(loving["sub"]!,
+                  style: TextStyle(color: Colors.pink.shade200, fontSize: 14),
+                  textAlign: TextAlign.center),
+                const SizedBox(height: 20),
+                // أزرار التنقل بين الرسائل
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_ios, color: Colors.white60),
+                      onPressed: () => setState(() =>
+                        _currentDailyMessageIndex = (_currentDailyMessageIndex - 1 + _husbandMessages.length) % _husbandMessages.length),
+                    ),
+                    Text("\${_currentDailyMessageIndex + 1}/\${_husbandMessages.length}",
+                      style: const TextStyle(color: Colors.white60)),
+                    IconButton(
+                      icon: const Icon(Icons.arrow_forward_ios, color: Colors.white60),
+                      onPressed: () => setState(() =>
+                        _currentDailyMessageIndex = (_currentDailyMessageIndex + 1) % _husbandMessages.length),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // الورد والأذكار
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("🌙 ورد يومي مقترح",
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                const SizedBox(height: 15),
+                ...[
+                  {"icon": "☀️", "text": "أذكار الصباح", "count": "10 دقائق"},
+                  {"icon": "📖", "text": "قراءة ورد القرآن", "count": "ربع حزب"},
+                  {"icon": "🌿", "text": "الاستغفار", "count": "100 مرة"},
+                  {"icon": "💫", "text": "الصلاة على النبي", "count": "100 مرة"},
+                  {"icon": "🌙", "text": "أذكار المساء", "count": "10 دقائق"},
+                ].map((item) => Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  color: const Color(0xFF1a1a2e).withOpacity(0.7),
+                  child: ListTile(
+                    leading: Text(item["icon"]!, style: const TextStyle(fontSize: 24)),
+                    title: Text(item["text"]!, style: const TextStyle(color: Colors.white)),
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.pink.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(item["count"]!, style: const TextStyle(color: Colors.pink, fontSize: 12)),
+                    ),
+                  ),
+                )),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ================================================================
+  // ================ 3. صفحة البومودورو =============================
+  // ================================================================
+  Widget _buildPomodoroPage() {
+    int minutes = _pomodoroSeconds ~/ 60;
+    int seconds = _pomodoroSeconds % 60;
+    double progress = _isBreakTime
+      ? 1 - (_pomodoroSeconds / (5 * 60))
+      : 1 - (_pomodoroSeconds / (25 * 60));
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(30),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              _isBreakTime ? "☕ وقت الراحة" : "📚 وقت التركيز",
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold,
+                color: _isBreakTime ? Colors.green : Colors.purple),
+            ),
+            const SizedBox(height: 10),
+            Text("جلسات مكتملة: \$_pomodoroCount 🌸",
+              style: const TextStyle(color: Colors.grey)),
+            const SizedBox(height: 30),
+            // دائرة التايمر
+            SizedBox(
+              width: 220,
+              height: 220,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  SizedBox(
+                    width: 220,
+                    height: 220,
+                    child: CircularProgressIndicator(
+                      value: progress,
+                      strokeWidth: 12,
+                      backgroundColor: Colors.grey.shade200,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        _isBreakTime ? Colors.green : Colors.purple),
+                    ),
+                  ),
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        "\${minutes.toString().padLeft(2, '0')}:\${seconds.toString().padLeft(2, '0')}",
+                        style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
+                      ),
+                      Text(_pomodoroRunning ? "جارٍ..." : "متوقف",
+                        style: const TextStyle(color: Colors.grey)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 40),
+            // أزرار التحكم
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // إعادة تعيين
+                IconButton(
+                  icon: const Icon(Icons.refresh, size: 32, color: Colors.grey),
+                  onPressed: () {
+                    _pomodoroTimer?.cancel();
+                    setState(() {
+                      _pomodoroSeconds = 25 * 60;
+                      _pomodoroRunning = false;
+                      _isBreakTime = false;
+                    });
+                  },
+                ),
+                const SizedBox(width: 20),
+                // تشغيل/إيقاف
+                GestureDetector(
+                  onTap: () {
+                    if (_pomodoroRunning) {
+                      _pomodoroTimer?.cancel();
+                      setState(() => _pomodoroRunning = false);
+                    } else {
+                      setState(() => _pomodoroRunning = true);
+                      _pomodoroTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+                        if (_pomodoroSeconds > 0) {
+                          setState(() => _pomodoroSeconds--);
+                        } else {
+                          t.cancel();
+                          setState(() {
+                            _pomodoroRunning = false;
+                            if (!_isBreakTime) {
+                              _pomodoroCount++;
+                              _isBreakTime = true;
+                              _pomodoroSeconds = 5 * 60;
+                            } else {
+                              _isBreakTime = false;
+                              _pomodoroSeconds = 25 * 60;
+                            }
+                          });
+                        }
+                      });
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: _isBreakTime ? Colors.green : Colors.purple,
+                      shape: BoxShape.circle,
+                      boxShadow: [BoxShadow(
+                        color: (_isBreakTime ? Colors.green : Colors.purple).withOpacity(0.4),
+                        blurRadius: 20,
+                      )],
+                    ),
+                    child: Icon(_pomodoroRunning ? Icons.pause : Icons.play_arrow,
+                      color: Colors.white, size: 40),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                // تخطي
+                IconButton(
+                  icon: const Icon(Icons.skip_next, size: 32, color: Colors.grey),
+                  onPressed: () {
+                    _pomodoroTimer?.cancel();
+                    setState(() {
+                      _pomodoroRunning = false;
+                      _isBreakTime = !_isBreakTime;
+                      _pomodoroSeconds = _isBreakTime ? 5 * 60 : 25 * 60;
+                    });
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 30),
+            Container(
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: Colors.purple.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: const Text(
+                "25 دقيقة تركيز ← 5 دقائق راحة\nبعد 4 جلسات خذي راحة طويلة 💜",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.purple, height: 1.6),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ================================================================
+  // ================ 4. صفحة عداد الأيام ===========================
+  // ================================================================
+  Widget _buildDayCounterPage() {
+    int daysPassed = _specialDate != null
+      ? DateTime.now().difference(_specialDate!).inDays
+      : 0;
+
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.favorite, color: Colors.pink, size: 60),
+          const SizedBox(height: 10),
+          Text(_specialDateLabel,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 30),
+          if (_specialDate != null) ...[
+            Container(
+              padding: const EdgeInsets.all(30),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [Colors.green.shade400, Colors.teal.shade400]),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Column(
+                children: [
+                  Text("\$daysPassed",
+                    style: const TextStyle(fontSize: 72, fontWeight: FontWeight.bold, color: Colors.white)),
+                  const Text("يوم مضى 💕",
+                    style: TextStyle(color: Colors.white, fontSize: 20)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              "منذ \${_specialDate!.day}/\${_specialDate!.month}/\${_specialDate!.year}",
+              style: const TextStyle(color: Colors.grey),
+            ),
+          ] else
+            const Text("اضغطي لتحديد التاريخ المميز 📅",
+              style: TextStyle(color: Colors.grey)),
+          const SizedBox(height: 30),
+          ElevatedButton.icon(
+            onPressed: () async {
+              DateTime? picked = await showDatePicker(
+                context: context,
+                initialDate: DateTime.now(),
+                firstDate: DateTime(2000),
+                lastDate: DateTime.now(),
+              );
+              if (picked != null) {
+                if (!mounted) return;
+                setState(() => _specialDate = picked);
+              }
+            },
+            icon: const Icon(Icons.calendar_today),
+            label: const Text("تحديد التاريخ"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextButton(
+            onPressed: () {
+              final ctrl = TextEditingController(text: _specialDateLabel);
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text("تسمية المناسبة"),
+                  content: TextField(controller: ctrl),
+                  actions: [
+                    ElevatedButton(
+                      onPressed: () {
+                        setState(() => _specialDateLabel = ctrl.text);
+                        Navigator.pop(ctx);
+                      },
+                      child: const Text("حفظ"),
+                    ),
+                  ],
+                ),
+              );
+            },
+            child: const Text("✏️ تغيير اسم المناسبة"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ================================================================
+  // ================ 5. صفحة الرسائل المقفلة =======================
+  // ================================================================
+  Widget _buildLockedMessagesPage() {
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          const Text("💌 الرسائل المقفلة",
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 5),
+          const Text("اكتبي رسالة لنفسكِ في المستقبل",
+            style: TextStyle(color: Colors.grey)),
+          const SizedBox(height: 20),
+          ElevatedButton.icon(
+            onPressed: _addLockedMessage,
+            icon: const Icon(Icons.lock),
+            label: const Text("رسالة جديدة مقفلة 💌"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.pink,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Expanded(
+            child: _lockedMessages.isEmpty
+              ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.lock_outline, size: 60, color: Colors.pink),
+                      SizedBox(height: 10),
+                      Text("لا توجد رسائل مقفلة بعد\nاكتبي أولى رسائلكِ للمستقبل 💌",
+                        textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: _lockedMessages.length,
+                  itemBuilder: (ctx, i) {
+                    final msg = _lockedMessages[i];
+                    final openDate = DateTime.tryParse(msg["openDate"] ?? "");
+                    final canOpen = openDate == null || DateTime.now().isAfter(openDate);
+                    return Dismissible(
+                      key: Key('lmsg_\$i'),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        color: Colors.red,
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 16),
+                        child: const Icon(Icons.delete, color: Colors.white),
+                      ),
+                      onDismissed: (_) => setState(() => _lockedMessages.removeAt(i)),
+                      child: Card(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        child: ListTile(
+                          leading: Icon(
+                            canOpen ? Icons.lock_open : Icons.lock,
+                            color: canOpen ? Colors.green : Colors.pink,
+                          ),
+                          title: Text(msg["title"] ?? "رسالة"),
+                          subtitle: Text(openDate != null
+                            ? "تُفتح في: \${openDate.day}/\${openDate.month}/\${openDate.year}"
+                            : "متاحة الآن"),
+                          trailing: canOpen
+                            ? IconButton(
+                                icon: const Icon(Icons.open_in_new, color: Colors.pink),
+                                onPressed: () => _openLockedMessage(msg),
+                              )
+                            : const Icon(Icons.hourglass_empty, color: Colors.grey),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _addLockedMessage() {
+    if (!mounted) return;
+    final titleCtrl = TextEditingController();
+    final msgCtrl = TextEditingController();
+    DateTime? selectedDate;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setStateDialog) => AlertDialog(
+          title: const Text("💌 رسالة جديدة"),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleCtrl,
+                  decoration: const InputDecoration(hintText: "عنوان الرسالة"),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: msgCtrl,
+                  maxLines: 5,
+                  decoration: const InputDecoration(
+                    hintText: "اكتبي رسالتكِ هنا...",
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextButton.icon(
+                  icon: const Icon(Icons.calendar_today),
+                  label: Text(selectedDate != null
+                    ? "تُفتح: \${selectedDate!.day}/\${selectedDate!.month}/\${selectedDate!.year}"
+                    : "اختاري تاريخ الفتح (اختياري)"),
+                  onPressed: () async {
+                    DateTime? picked = await showDatePicker(
+                      context: ctx,
+                      initialDate: DateTime.now().add(const Duration(days: 30)),
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime(2030),
+                    );
+                    if (picked != null) setStateDialog(() => selectedDate = picked);
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("إلغاء")),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.pink),
+              onPressed: () {
+                if (msgCtrl.text.isNotEmpty) {
+                  setState(() => _lockedMessages.add({
+                    "title": titleCtrl.text.isEmpty ? "رسالة لآلاء 💌" : titleCtrl.text,
+                    "content": msgCtrl.text,
+                    "openDate": selectedDate?.toIso8601String() ?? "",
+                    "createdAt": DateTime.now().toIso8601String(),
+                  }));
+                  Navigator.pop(ctx);
+                }
+              },
+              child: const Text("حفظ 🔒", style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openLockedMessage(Map<String, String> msg) {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text("💌 \${msg['title']}"),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(msg["content"] ?? "", style: const TextStyle(fontSize: 16, height: 1.6)),
+              const SizedBox(height: 15),
+              Text(
+                "كُتبت في: \${DateTime.tryParse(msg['createdAt'] ?? '')?.day ?? '—'}/\${DateTime.tryParse(msg['createdAt'] ?? '')?.month ?? '—'}/\${DateTime.tryParse(msg['createdAt'] ?? '')?.year ?? '—'}",
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("إغلاق 💕")),
+        ],
+      ),
     );
   }
 }
