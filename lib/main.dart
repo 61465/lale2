@@ -2459,7 +2459,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text("إلغاء")),
-          ElevatedButton.icon(
+          ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.purple.shade600,
               foregroundColor: Colors.white,
@@ -2476,7 +2476,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
               _saveAll();
               Navigator.pop(ctx);
             },
-            child: const Text("حفظ 💾")),
+            child: const Text("💾 حفظ")),
         ],
       ),
     );
