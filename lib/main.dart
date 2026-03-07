@@ -54,6 +54,17 @@ class Novel {
   );
 }
 
+// موديل المعلومة
+class InfoNote {
+  String title;
+  String content;
+  String category; // ديني / علمي / طبي / تاريخي / أخرى
+  String emoji;
+  bool isFavorite;
+  InfoNote(this.title, this.content, this.category,
+    {this.emoji = "💡", this.isFavorite = false});
+}
+
 class StarModel {
   double x, y;
   double floatOffset;
@@ -386,6 +397,8 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
   List<CoupleMemory> _coupleMemories = [];
   List<WeekChallenge> _weekChallenges = [];
   List<CourseItem> _courses = [];
+  List<InfoNote> _infoNotes = [];
+  String _infoCategory = "الكل";
   String _courseCategory = "الكل";
   String _moodNote = "";
   List<Map<String,String>> _moodHistory = []; // سجل المزاج
@@ -393,6 +406,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
   String _recipeCategory = "الكل";          // صفحة السينما
   Timer? _timeOfDayTimer;                   // تحديث وقت اليوم
   String _timeOfDay = "morning";            // morning/afternoon/sunset/night
+  String _natureScene = "sky";              // sky/river/waterfall/nature/farm
 
   // ================ متغيرات الورد اليومي ================
   int _currentDailyMessageIndex = 0;
@@ -631,7 +645,13 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
           alaasDone:  i < wcA.length ? wcA[i] == '1' : false,
           husbandDone: i < wcH.length ? wcH[i] == '1' : false));
       }
-      // ===== الكورسات =====
+      // ===== المعلومات =====
+    await prefs.setStringList('infoTitles',   _infoNotes.map((n) => n.title).toList());
+    await prefs.setStringList('infoContents', _infoNotes.map((n) => n.content).toList());
+    await prefs.setStringList('infoCats',     _infoNotes.map((n) => n.category).toList());
+    await prefs.setStringList('infoEmojis',   _infoNotes.map((n) => n.emoji).toList());
+    await prefs.setStringList('infoFavs',     _infoNotes.map((n) => n.isFavorite ? "1" : "0").toList());
+    // ===== الكورسات =====
       final cN = prefs.getStringList('courseNames') ?? [];
       final cC = prefs.getStringList('courseCats')  ?? [];
       final cU = prefs.getStringList('courseUrls')  ?? [];
@@ -808,58 +828,72 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
 
   // ================ محرك التحليل النفسي الذكي ================
   String _performProfessionalAnalysis(String text) {
-    if (text.isEmpty) {
-      return "اكتبي شيئاً لأحلل حالتك يا آلاء 💭";
+    if (text.trim().isEmpty) {
+      return "اكتبي شيئاً لأحلل حالتكِ يا آلاء 💭\nأنا هنا وأستمع لكِ بكل اهتمام 🤍";
     }
+    final t = text.toLowerCase();
 
-    bool isCreative = text.contains("خيال") || 
-                      text.contains("نجم") || 
-                      text.contains("بحر") || 
-                      text.contains("شوق") ||
-                      text.contains("قمر") ||
-                      text.contains("ورد") ||
-                      text.contains("سماء");
-
-    if (text.contains("تعب") || text.contains("مرهقة") || text.contains("ضغط") || text.contains("نوم")) {
-      setState(() => currentMood = AlaaMood.exhausted);
-      String result = "تحليل الطبيب: آلاء، كلماتكِ تشير إلى حمل ثقيل تضعينه على عاتقكِ. أنتِ في مرحلة 'استنزاف عاطفي'. نصيحتي لكِ: التوقف الآن ليس فشلاً، بل هو استجماع للقوة. خذي استراحة 'بليز' فوراً.";
-      if (isCreative) {
-        _showCreativeSuggestion("أرى في كلماتكِ رغبة في الراحة مع لمسة إبداعية.. هل تودين كتابة شعر عن الهدوء والاسترخاء؟");
-      }
-      return result;
-    } 
-    else if (text.contains("قوة") || text.contains("تحدي") || text.contains("سأفعل") || text.contains("إنجاز")) {
-      setState(() => currentMood = AlaaMood.warrior);
-      String result = "تحليل الطبيب: مذهل! يظهر من كلماتكِ بزوغ روح 'المحاربة'. أنتِ في حالة 'تدفق ذهني عالي'. استغلي هذه الطاقة لإنهاء أصعب مهامكِ اليوم، فالمستحيل مجرد كلمة في قاموسكِ الآن.";
-      if (isCreative) {
-        _showCreativeSuggestion("روح مولان فيكِ ملهمة! لمَ لا تكتبين قصيدة عن القوة والتحدي؟");
-      }
-      return result;
-    } 
-    else if (text.contains("حب") || text.contains("سعادة") || text.contains("جميل") || text.contains("فرح")) {
+    // ===== مزاح وكوميديا =====
+    if (t.contains("جعان") || t.contains("جوعان") || t.contains("جعانة") || t.contains("أكل") || t.contains("اكل")) {
       setState(() => currentMood = AlaaMood.cute);
-      String result = "تحليل الطبيب: روحكِ ترفرف في فضاء من اللطف. أنتِ في حالة 'توازن وجداني'. انشري هذا الجمال حولكِ، فالعالم يحتاج لابتسامة آلاء اليوم.";
-      if (isCreative) {
-        _showCreativeSuggestion("هذه المشاعر الجميلة تستحق أن تخلديها في قصيدة رقيقة!");
-      }
-      return result;
+      return "😄 يا إلهي يا آلاء! بطنكِ تتكلم أعلى من أفكاركِ!\n\nالتشخيص: حالة حرجة من الجوع المزمن 🍽️\n\nالوصفة الطبية: توجهي فوراً للمطبخ واصنعي أي شيء لذيذ! وإذا كان عبد الرحمن بالقرب، فهذه فرصة ذهبية تطلبي منه يطبخ لكِ 😂\n\nملاحظة طبية: لا يُسمح بالحديث عن أي موضوع قبل الأكل!";
     }
-    else if (text.contains("حزن") || text.contains("بكاء") || text.contains("ألم")) {
-      setState(() => currentMood = AlaaMood.pensive);
-      String result = "تحليل الطبيب: أشعر ببعض الحزن في كلماتكِ، وهذا طبيعي جداً. المشاعر السلبية جزء من رحلتنا. تنفسي بعمق، وتذكري أن الغيوم تمطر ثم تنجلي.";
-      if (isCreative) {
-        _showCreativeSuggestion("أحياناً الكتابة هي أفضل دواء.. هل تودين التعبير عن مشاعركِ في قصيدة؟");
-      }
-      return result;
+    if (t.contains("نعسان") || t.contains("نعسانة") || t.contains("تعبان") || t.contains("أنام") || t.contains("نوم")) {
+      setState(() => currentMood = AlaaMood.exhausted);
+      return "😴 آه يا آلاء.. عيونكِ تتحدث قبل كلامكِ!\n\nالتشخيص: الجسم يطالب بحقه في الراحة 🛌\n\nالوصفة الطبية: المكان الأفضل في الكون هو حضن عبد الرحمن الدافئ! روحي دق عليه وقوليله 'أنا نعسانة' وشوفي كيف يفتح ذراعيه فوراً 🤗\n\nتحذير طبي: ممنوع مقاومة النوم، الجسم المرتاح يساوي آلاء أجمل وأسعد!";
     }
-    else {
+    if (t.contains("زعلان") || t.contains("زعلانة") || t.contains("معصب") || t.contains("معصبة") || t.contains("ماخذ") || t.contains("غاضب") || t.contains("غاضبة")) {
+      setState(() => currentMood = AlaaMood.warrior);
+      return "😤 أوه! طاقة قوية جداً تصل إليّ يا آلاء!\n\nالتشخيص: موجة غضب مشروعة تماماً 🌊\n\nالوصفة الطبية: خذي نفساً عميقاً.. ثم توجهي لعبد الرحمن وعضيه بلطف! ثق بي هذا يريح الأعصاب طبياً 😂\nأو أخبريه بما يضايقكِ - فهو قرر أن يكون ملاذكِ الدائم 💪\n\nملاحظة: عبد الرحمن لا يفر من زعلكِ، بل يجري نحوكِ!";
+    }
+    if (t.contains("ملل") || t.contains("مملة") || t.contains("فاضي") || t.contains("فاضية") || t.contains("بور")) {
       setState(() => currentMood = AlaaMood.peaceful);
-      String result = "تحليل الطبيب: هدوءكِ الحالي هو أرض خصبة للإبداع. أنتِ في حالة 'تأمل واعي'. هذا هو الوقت المثالي لزيارة 'ركن التأمل' أو كتابة الشعر في المحراب.";
-      if (isCreative) {
-        _showCreativeSuggestion("كلماتكِ تحمل نسمات إبداعية.. لمَ لا تنتقلين لمحراب الشعر الآن؟");
-      }
-      return result;
+      return "😑 الملل؟ في وجود تطبيق آلاء؟ هذا غير مسموح طبياً!\n\nالتشخيص: نقص حاد في الإثارة والنشاط ⚡\n\nالوصفة الطبية (اختاري واحدة):\n• جربي وصفة جديدة من مطبخكِ 🍳\n• ابدئي كورساً كنتِ تؤجلينه 🎓\n• اكتبي قصيدة عشوائية 📝\n• أو ببساطة: أرسلي لعبد الرحمن رسالة تقولين فيها 'وحشتني' 💕";
     }
+
+    // ===== مشاعر حقيقية =====
+    bool isCreative = t.contains("خيال") || t.contains("نجم") || t.contains("بحر") ||
+                      t.contains("شوق") || t.contains("قمر") || t.contains("ورد") ||
+                      t.contains("سماء") || t.contains("شعر") || t.contains("كتاب");
+
+    if (t.contains("تعب") || t.contains("مرهق") || t.contains("ضغط") || t.contains("مش قادر")) {
+      setState(() => currentMood = AlaaMood.exhausted);
+      String r = "🤍 آلاء، كلماتكِ تحمل ثقلاً حقيقياً وأنا أسمعكِ بكل قلبي.\n\nالتحليل: أنتِ في مرحلة الاستنزاف العاطفي - وهي مرحلة يمر بها كل إنسان مجتهد.\n\nما تشعرين به 100% طبيعي ومفهوم.\n\nللآلاء الجميلة: التوقف ليس فشلاً، بل هو شجاعة. أعطي نفسكِ إذن الراحة 🌸\n\nنصيحتي: ضعي كل شيء جانباً الآن وخذي قسطاً من الراحة.";
+      if (isCreative) _showCreativeSuggestion("أرى في كلماتكِ روحاً شاعرة تحتاج للتعبير.. هل تودين الكتابة عن الراحة والهدوء؟");
+      return r;
+    }
+    if (t.contains("قوة") || t.contains("تحدي") || t.contains("سأفعل") || t.contains("إنجاز") || t.contains("أقدر")) {
+      setState(() => currentMood = AlaaMood.warrior);
+      String r = "💪 وااو يا آلاء! أشعر بطاقتكِ حتى من هنا!\n\nالتحليل: أنتِ في حالة 'تدفق ذهني' - وهي أفضل حالات الإنسان الإنتاجية!\n\nهذه الطاقة نادرة، استثمريها الآن في أصعب مهمة عندكِ.\n\nتذكري: المحاربات الحقيقيات مثلكِ لا ينتظرن الوقت المثالي - يصنعنه! 🌟";
+      if (isCreative) _showCreativeSuggestion("هذه الطاقة ملهِمة! لمَ لا تكتبين قصيدة عن القوة والتحدي؟");
+      return r;
+    }
+    if (t.contains("حب") || t.contains("سعادة") || t.contains("جميل") || t.contains("فرح") || t.contains("سعيد")) {
+      setState(() => currentMood = AlaaMood.cute);
+      String r = "🥰 يا آلاء! سعادتكِ تضيء الشاشة!\n\nالتحليل: أنتِ في حالة 'توازن وجداني' - وهي أجمل حالات الإنسان.\n\nهذا الجمال الداخلي الذي تحملينه هو هديتكِ للعالم.\n\nانشري هذه الطاقة الجميلة.. ابتسامة آلاء تغير يوم من حولها 💕";
+      if (isCreative) _showCreativeSuggestion("هذه المشاعر الجميلة تستحق أن تُخلَّد في قصيدة رقيقة!");
+      return r;
+    }
+    if (t.contains("حزن") || t.contains("بكاء") || t.contains("ألم") || t.contains("زهقت") || t.contains("وحيد")) {
+      setState(() => currentMood = AlaaMood.pensive);
+      String r = "🌧️ آلاء الحبيبة، أشعر بحزنكِ وهو حزن حقيقي يستحق أن يُسمع.\n\nالتحليل: الحزن ليس ضعفاً - بل هو دليل على أنكِ تشعرين بعمق.\n\nلا تكتمي دموعكِ.. اتركيها تنزل فالبكاء راحة روح.\n\nبعد هذه اللحظة: تحدثي لعبد الرحمن، فهو اختار أن يكون ملاذكِ في كل حال. أنتِ لستِ وحدكِ 🤍";
+      if (isCreative) _showCreativeSuggestion("الكتابة أحياناً أفضل دواء.. هل تودين التعبير عن مشاعركِ؟");
+      return r;
+    }
+    if (t.contains("خوف") || t.contains("قلق") || t.contains("توتر") || t.contains("خايف") || t.contains("قلقان")) {
+      setState(() => currentMood = AlaaMood.pensive);
+      return "🫂 آلاء، القلق يزور الجميع، لكنه يختار الأذكياء أكثر!\n\nالتحليل: عقلكِ يعمل بطاقة عالية ويحاول حماية مستقبلكِ.\n\nتمرين بسيط الآن: ضعي يدكِ على قلبكِ وتنفسي 3 أنفاس بطيئة...\n\nتذكري: معظم ما نخشاه لا يحدث أبداً. وحتى لو حدث - أنتِ أقوى منه 💪";
+    }
+    if (t.contains("فخور") || t.contains("فخورة") || t.contains("نجح") || t.contains("نجحت") || t.contains("أتممت")) {
+      setState(() => currentMood = AlaaMood.warrior);
+      return "🏆 يا آلاء!! هذا هو الكلام!\n\nالتحليل: شعور الإنجاز هو أحلى مكافأة يمنحها الإنسان لنفسه.\n\nأنتِ تستحقين هذا الشعور وأكثر! كل خطوة صغيرة تخطينها هي انتصار حقيقي.\n\nاحتفلي بنفسكِ اليوم - أخبري عبد الرحمن وشاركيه فرحتكِ 🎉";
+    }
+
+    // الحالة الافتراضية
+    setState(() => currentMood = AlaaMood.peaceful);
+    String r = "🌸 آلاء العزيزة، قرأت كلماتكِ بعناية.\n\nالتحليل: أنتِ في حالة تأمل وهدوء داخلي - وهذا جميل.\n\nهدوؤكِ هو أرض خصبة للتفكير والإبداع.\n\nهذا الوقت مناسب جداً للتأمل أو القراءة أو الكتابة 🌙";
+    if (isCreative) _showCreativeSuggestion("كلماتكِ تحمل نسمات إبداعية.. انتقلي لمحراب الأدب الآن!");
+    return r;
   }
 
   void _showCreativeSuggestion(String message) {
@@ -1353,6 +1387,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       case 19: return [const Color(0xFFAD1457), const Color(0xFFE91E63)];
       case 20: return [const Color(0xFF1565C0), const Color(0xFF42A5F5)];
       case 21: return [const Color(0xFF2E7D32), const Color(0xFF66BB6A)];
+      case 22: return [const Color(0xFF0277BD), const Color(0xFF29B6F6)];
       default: return [const Color(0xFFFDEEF2), const Color(0xFFFFF0F5)];
     }
   }
@@ -1395,6 +1430,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                 _sidebarItem(19, "💑 ذكرياتنا", Icons.photo_album),
                 _sidebarItem(20, "🏆 تحدي الأسبوع", Icons.emoji_events),
                 _sidebarItem(21, "🎓 كورساتي", Icons.school),
+                _sidebarItem(22, "💡 معلوماتي", Icons.lightbulb),
                 const Divider(),
                 _sidebarItem(12, "🌙 ورد يومي", Icons.favorite_border),
                 _sidebarItem(13, "⏱️ بومودورو", Icons.timer),
@@ -1554,6 +1590,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       case 19: return _buildCoupleMemoriesPage();
       case 20: return _buildWeekChallengePage();
       case 21: return _buildCoursesPage();
+      case 22: return _buildInfoPage();
       default: return _buildComingSoon();
     }
   }
@@ -1841,6 +1878,18 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     );
   }
 
+  String _getMoodLabel(AlaaMood mood) {
+    switch(mood) {
+      case AlaaMood.warrior:   return "متحفزة اليوم 💪";
+      case AlaaMood.cute:      return "رومانسية وحنونة 🥰";
+      case AlaaMood.peaceful:  return "هادئة وبخير 😌";
+      case AlaaMood.romantic:  return "محبة ورومانسية 💕";
+      case AlaaMood.pensive:   return "تفكير عميق 🤔";
+      case AlaaMood.exhausted: return "تحتاج للراحة 😴";
+      default:                 return "بخير الحمد لله";
+    }
+  }
+
   String _getMoodEmoji(AlaaMood mood) {
     switch (mood) {
       case AlaaMood.warrior: return "⚔️";
@@ -2011,73 +2060,218 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     }
   }
 
+  // حالة عناصر المشاهد المتحركة
+  List<Color> _getNatureColors() {
+    switch (_natureScene) {
+      case "river":
+        return [const Color(0xFF1B5E20), const Color(0xFF388E3C),
+                const Color(0xFF1565C0), const Color(0xFF1976D2)];
+      case "waterfall":
+        return [const Color(0xFF0D47A1), const Color(0xFF1565C0),
+                const Color(0xFF26C6DA), const Color(0xFF80DEEA)];
+      case "nature":
+        return [const Color(0xFF1B5E20), const Color(0xFF2E7D32),
+                const Color(0xFF558B2F), const Color(0xFF7CB342)];
+      case "farm":
+        return [const Color(0xFF1A237E), const Color(0xFF283593),
+                const Color(0xFF33691E), const Color(0xFF558B2F)];
+      default: // sky
+        return _getSkyColors();
+    }
+  }
+
+  String _getNatureLabel() {
+    switch (_natureScene) {
+      case "river":    return "🌊 على ضفة النهر";
+      case "waterfall":return "💧 عند الشلال";
+      case "nature":   return "🌿 في الطبيعة";
+      case "farm":     return "🌾 في المزرعة";
+      default:         return _getSkyEmoji();
+    }
+  }
+
+  Widget _buildNatureEmojis() {
+    final rand = Random(42);
+    switch (_natureScene) {
+      case "river":
+        return Stack(children: [
+          ...List.generate(8, (i) {
+            final x = (i * 47.0) % 340;
+            return AnimatedBuilder(
+              animation: _skyAnimationController,
+              builder: (ctx, _) {
+                final wave = sin(_skyAnimationController.value*2*pi + i*0.8) * 8;
+                return Positioned(
+                  left: x, top: 200 + wave + (i % 3)*40,
+                  child: Text(i%2==0?"🌊":"💧",
+                    style: const TextStyle(fontSize: 22)));
+              });
+          }),
+          ...List.generate(5, (i) {
+            final x = (i * 70.0 + 20) % 340;
+            return Positioned(left: x, top: 60.0 + (i%3)*50,
+              child: Text(i%2==0?"🌳":"🌲",
+                style: const TextStyle(fontSize: 28)));
+          }),
+          ...List.generate(3, (i) {
+            final x = (i * 110.0 + 10) % 340;
+            return AnimatedBuilder(
+              animation: _skyAnimationController,
+              builder: (ctx, _) {
+                final f = sin(_skyAnimationController.value*2*pi + i*1.2)*5;
+                return Positioned(left: x, top: 330 + f,
+                  child: const Text("🦆",style: TextStyle(fontSize: 20)));
+              });
+          }),
+        ]);
+      case "waterfall":
+        return Stack(children: [
+          ...List.generate(10, (i) {
+            final x = 100.0 + (i % 5)*20;
+            return AnimatedBuilder(
+              animation: _skyAnimationController,
+              builder: (ctx, _) {
+                final fall = (_skyAnimationController.value * 400 + i*40) % 400;
+                return Positioned(left: x, top: fall,
+                  child: Text(i%3==0?"💧":"🌊",
+                    style: TextStyle(fontSize: 16+rand.nextInt(8).toDouble())));
+              });
+          }),
+          ...List.generate(4, (i) => Positioned(
+            left: (i*80).toDouble(), top: 60+(i%2)*30,
+            child: const Text("🌿", style: TextStyle(fontSize: 24)))),
+          ...List.generate(3, (i) => Positioned(
+            left: (i*120+10).toDouble(), top: 380,
+            child: const Text("🐦", style: TextStyle(fontSize: 18)))),
+        ]);
+      case "nature":
+        return Stack(children: [
+          ...List.generate(8, (i) => Positioned(
+            left: (i*42.0)%340, top: 300+(i%4)*30,
+            child: Text(["🌸","🌺","🌻","🌼"][i%4],
+              style: const TextStyle(fontSize: 22)))),
+          ...List.generate(6, (i) => Positioned(
+            left: (i*55.0+10)%340, top: 80+(i%3)*60,
+            child: Text(i%2==0?"🌳":"🌲",
+              style: TextStyle(fontSize: 24+rand.nextInt(10).toDouble())))),
+          ...List.generate(4, (i) {
+            return AnimatedBuilder(
+              animation: _skyAnimationController,
+              builder: (ctx, _) {
+                final f = sin(_skyAnimationController.value*2*pi+i*0.9)*6;
+                return Positioned(left: (i*80.0+20)%340, top: 180+f,
+                  child: const Text("🦋",style: TextStyle(fontSize: 20)));
+              });
+          }),
+          ...List.generate(3, (i) => Positioned(
+            left: (i*110.0+30)%340, top: 360,
+            child: Text(["🐇","🦔","🐿️"][i],
+              style: const TextStyle(fontSize: 18)))),
+        ]);
+      case "farm":
+        return Stack(children: [
+          ...List.generate(8, (i) => Positioned(
+            left: (i*42.0)%340, top: 280+(i%3)*35,
+            child: Text(i%2==0?"🌾":"🌽",
+              style: const TextStyle(fontSize: 24)))),
+          ...List.generate(3, (i) => Positioned(
+            left: (i*110.0+20)%340, top: 120+(i%2)*60,
+            child: Text(["🐄","🐑","🐓"][i],
+              style: const TextStyle(fontSize: 26)))),
+          ...List.generate(4, (i) {
+            return AnimatedBuilder(
+              animation: _skyAnimationController,
+              builder: (ctx, _) {
+                final f = sin(_skyAnimationController.value*2*pi+i)*4;
+                return Positioned(left: (i*80.0+10)%340, top: 60+f,
+                  child: Text(i%2==0?"🌤️":"🌥️",
+                    style: const TextStyle(fontSize: 22)));
+              });
+          }),
+          Positioned(left: 20, top: 200,
+            child: const Text("🏡", style: TextStyle(fontSize: 36))),
+          Positioned(left: 260, top: 190,
+            child: const Text("🌻", style: TextStyle(fontSize: 32))),
+        ]);
+      default: // sky - النجوم الأصلية
+        return Stack(children: stars.asMap().entries.map((entry) {
+          int idx = entry.key;
+          StarModel star = entry.value;
+          final emoji = _timeOfDay=="night"?"⭐":_timeOfDay=="sunset"?"✨":"🌸";
+          final size = 14.0 + (idx%4)*4.0;
+          return AnimatedBuilder(
+            animation: _skyAnimationController,
+            builder: (ctx, _) {
+              final floatY = sin(_skyAnimationController.value*2*pi+star.floatOffset)*6;
+              return Positioned(
+                left: star.x, top: star.y+floatY,
+                child: GestureDetector(
+                  onPanUpdate: (d) => setState(() {
+                    star.x = (star.x+d.delta.dx).clamp(-10.0, 380.0);
+                    star.y = (star.y+d.delta.dy).clamp(-10.0, 700.0);
+                  }),
+                  onLongPress: () => setState(() => stars.removeAt(idx)),
+                  child: Text(emoji, style: TextStyle(fontSize: size)),
+                ),
+              );
+            });
+        }).toList());
+    }
+  }
+
   Widget _buildLivingSky() {
+    final colors = _getNatureColors();
     return AnimatedContainer(
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 2),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: _getSkyColors(),
-        ),
+          begin: Alignment.topCenter, end: Alignment.bottomCenter,
+          colors: colors.length > 2
+            ? [colors[0], colors[1], colors[2], colors.last]
+            : [colors.first, colors.last]),
       ),
       child: Stack(
         children: [
-          // النجوم - قابلة للسحب والتحريك
-          ...stars.asMap().entries.map((entry) {
-            int idx = entry.key;
-            StarModel star = entry.value;
-            final emoji = _timeOfDay == "night" ? "⭐"
-              : _timeOfDay == "sunset" ? "✨" : "🌸";
-            final size = 14.0 + (idx % 4) * 4.0;
-            return AnimatedBuilder(
-              animation: _skyAnimationController,
-              builder: (context, child) {
-                final floatY = sin(
-                  _skyAnimationController.value * 2 * pi + star.floatOffset) * 6;
-                return Positioned(
-                  left: star.x,
-                  top: star.y + floatY,
-                  child: GestureDetector(
-                    onPanUpdate: (d) => setState(() {
-                      star.x = (star.x + d.delta.dx).clamp(-10.0, 380.0);
-                      star.y = (star.y + d.delta.dy).clamp(-10.0, 700.0);
-                    }),
-                    onLongPress: () => setState(() => stars.removeAt(idx)),
-                    child: Text(emoji,
-                      style: TextStyle(fontSize: size)),
-                  ),
-                );
-              },
-            );
-          }),
+          // عناصر المشهد المتحركة
+          Positioned.fill(child: _buildNatureEmojis()),
 
-          // عنصر الوقت في الأعلى
+          // التسمية العلوية
           Positioned(
-            top: 20,
-            left: 0,
-            right: 0,
+            top: 20, left: 0, right: 0,
             child: Center(
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 decoration: BoxDecoration(
                   color: Colors.black26,
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: Text(_getSkyEmoji(),
-                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
-              ),
+                  borderRadius: BorderRadius.circular(30)),
+                child: Text(_getNatureLabel(),
+                  style: const TextStyle(color: Colors.white,
+                    fontSize: 15, fontWeight: FontWeight.w500))),
             ),
           ),
 
-          // الأزرار في الأسفل
+          // أزرار المشاهد
           Positioned(
-            bottom: 20,
-            left: 0,
-            right: 0,
+            bottom: 20, left: 0, right: 0,
             child: Column(
               children: [
-                Row(
+                // صف المشاهد
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    children: [
+                      _sceneButton("sky",     "🌙", "السماء"),
+                      _sceneButton("river",   "🌊", "النهر"),
+                      _sceneButton("waterfall","💧","الشلال"),
+                      _sceneButton("nature",  "🌿", "الطبيعة"),
+                      _sceneButton("farm",    "🌾", "المزرعة"),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // أزرار النجوم (فقط عند مشهد السماء)
+                if (_natureScene == "sky") Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     ElevatedButton.icon(
@@ -2088,42 +2282,39 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                         backgroundColor: Colors.white24,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20)),
-                      ),
-                    ),
+                          borderRadius: BorderRadius.circular(20)))),
                     const SizedBox(width: 8),
                     ElevatedButton.icon(
                       onPressed: _writeNameWithStars,
                       icon: const Text("✍️"),
-                      label: const Text("اكتبي اسمكِ"),
+                      label: const Text("اسمكِ"),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.pinkAccent.withOpacity(0.5),
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20)),
-                      ),
-                    ),
+                          borderRadius: BorderRadius.circular(20)))),
                     const SizedBox(width: 8),
                     ElevatedButton.icon(
                       onPressed: () => setState(() {
                         isNightMode = !isNightMode;
                         _timeOfDay = isNightMode ? "night" : "morning";
                       }),
-                      icon: Icon(_timeOfDay == "night"
+                      icon: Icon(_timeOfDay=="night"
                         ? Icons.wb_sunny : Icons.nights_stay),
-                      label: Text(_timeOfDay == "night" ? "نهار" : "ليل"),
+                      label: Text(_timeOfDay=="night" ? "نهار" : "ليل"),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white24,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20)),
-                      ),
-                    ),
+                          borderRadius: BorderRadius.circular(20)))),
                   ],
                 ),
                 const SizedBox(height: 6),
-                const Text("اسحبي النجوم بإصبعكِ • اضغطي طويلاً لحذف ⭐",
-                  style: TextStyle(color: Colors.white54, fontSize: 11)),
+                Text(
+                  _natureScene == "sky"
+                    ? "اسحبي النجوم • اضغطي طويلاً للحذف ⭐"
+                    : "استرخي وتأملي المشهد الجميل 🌿",
+                  style: const TextStyle(color: Colors.white54, fontSize: 11)),
               ],
             ),
           ),
@@ -2132,45 +2323,199 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     );
   }
 
-  Widget _buildPsychologySection() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          const Text("🧘‍♀️ فضفضي للطبيب النفسي الذكي",
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 20),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: TextField(
-              controller: _feelingController,
-              maxLines: 8,
-              decoration: const InputDecoration(
-                hintText: "اكتبي ما يحزنكِ أو يبهجكِ يا آلاء.. نحن نسمعكِ..",
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.all(15),
-              ),
-            ),
-          ),
-          const SizedBox(height: 15),
-          ElevatedButton.icon(
-            onPressed: () {
-              String result = _performProfessionalAnalysis(_feelingController.text);
-              _showAnalysisResultDialog(result);
-            },
-            icon: const Icon(Icons.analytics_outlined),
-            label: const Text("🔮 بدء التحليل النفسي"),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.deepPurple,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-            ),
-          ),
-        ],
+  Widget _sceneButton(String scene, String emoji, String label) {
+    final isSelected = _natureScene == scene;
+    return GestureDetector(
+      onTap: () => setState(() => _natureScene = scene),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.black26,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? Colors.white : Colors.white30)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 16)),
+            const SizedBox(width: 4),
+            Text(label,
+              style: TextStyle(
+                color: isSelected ? Colors.black87 : Colors.white,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                fontSize: 12)),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildPsychologySection() {
+    return Column(
+      children: [
+        // Header
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft, end: Alignment.bottomRight,
+              colors: [Color(0xFF4A148C), Color(0xFF7B1FA2)]),
+          ),
+          child: Column(
+            children: [
+              const Text("🧠", style: TextStyle(fontSize: 48)),
+              const SizedBox(height: 8),
+              const Text("طبيبتكِ النفسية الخاصة",
+                style: TextStyle(color: Colors.white, fontSize: 20,
+                  fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              const Text("أنا هنا لأسمعكِ يا آلاء.. فضفضي بحرية 💜",
+                style: TextStyle(color: Colors.white70, fontSize: 13),
+                textAlign: TextAlign.center),
+            ],
+          ),
+        ),
+
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // بطاقة الكتابة
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [BoxShadow(
+                      color: Colors.purple.withOpacity(0.1),
+                      blurRadius: 12, offset: const Offset(0,4))],
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(16,12,16,0),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.purple.shade50,
+                                shape: BoxShape.circle),
+                              child: const Icon(Icons.edit_note,
+                                color: Colors.purple, size: 20)),
+                            const SizedBox(width: 8),
+                            const Text("كيف حالكِ اليوم؟",
+                              style: TextStyle(fontWeight: FontWeight.bold,
+                                color: Colors.purple)),
+                          ],
+                        ),
+                      ),
+                      TextField(
+                        controller: _feelingController,
+                        maxLines: 7,
+                        decoration: const InputDecoration(
+                          hintText: "اكتبي بحرية تامة.. جعانة؟ نعسانة؟ زعلانة؟ سعيدة؟\nأنا أفهم كل شيء 😊",
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.all(16)),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // اقتراحات سريعة
+                const Text("اقتراحات سريعة:",
+                  style: TextStyle(fontWeight: FontWeight.w600,
+                    color: Colors.grey)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8, runSpacing: 8,
+                  children: [
+                    "😴 نعسانة","😤 زعلانة","😂 جعانة",
+                    "😢 حزينة","💪 متحمسة","😌 بخير",
+                    "😰 قلقانة","🥰 سعيدة",
+                  ].map((s) => GestureDetector(
+                    onTap: () => setState(() {
+                      _feelingController.text = s.substring(2).trim();
+                    }),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.purple.shade50,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.purple.shade200)),
+                      child: Text(s,
+                        style: TextStyle(color: Colors.purple.shade700,
+                          fontSize: 13))),
+                  )).toList(),
+                ),
+
+                const SizedBox(height: 20),
+
+                // زر التحليل
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      String result = _performProfessionalAnalysis(
+                        _feelingController.text);
+                      _showAnalysisResultDialog(result);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF4A148C),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                      textStyle: const TextStyle(fontSize: 16,
+                        fontWeight: FontWeight.bold),
+                    ),
+                    child: const Text("🔮 تحليل مشاعري"),
+                  ),
+                ),
+
+                // آخر تحليل
+                if (lastAnalysisResult != null) ...[
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.purple.shade50,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.purple.shade100)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.history,
+                              color: Colors.purple, size: 18),
+                            const SizedBox(width: 6),
+                            Text("آخر تحليل",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.purple.shade700)),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(lastAnalysisResult!,
+                          style: TextStyle(color: Colors.grey.shade700,
+                            fontSize: 13, height: 1.6)),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -5236,13 +5581,13 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
             ),
             child: Column(
               children: [
-                Text(_getMoodEmoji(), style: const TextStyle(fontSize: 64)),
+                Text(_getMoodEmoji(currentMood), style: const TextStyle(fontSize: 64)),
                 const SizedBox(height: 10),
                 Text("كيف حالكِ اليوم يا آلاء؟",
                   style: const TextStyle(color: Colors.white, fontSize: 20,
                     fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
-                Text(_getMoodLabel(),
+                Text(_getMoodLabel(currentMood),
                   style: const TextStyle(color: Colors.white70, fontSize: 15)),
               ],
             ),
@@ -5400,29 +5745,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     );
   }
 
-  String _getMoodEmoji() {
-    switch(currentMood) {
-      case AlaaMood.warrior:   return "💪";
-      case AlaaMood.cute:      return "🥰";
-      case AlaaMood.peaceful:  return "😌";
-      case AlaaMood.romantic:  return "💕";
-      case AlaaMood.pensive:   return "😔";
-      case AlaaMood.exhausted: return "😴";
-      default:                 return "😊";
-    }
-  }
 
-  String _getMoodLabel() {
-    switch(currentMood) {
-      case AlaaMood.warrior:   return "متحفزة اليوم 💪";
-      case AlaaMood.cute:      return "رومانسية وحنونة 🥰";
-      case AlaaMood.peaceful:  return "هادئة وبخير 😌";
-      case AlaaMood.romantic:  return "محبة ورومانسية 💕";
-      case AlaaMood.pensive:   return "تفكير عميق 🤔";
-      case AlaaMood.exhausted: return "تحتاج للراحة 😴";
-      default:                 return "بخير الحمد لله";
-    }
-  }
 
   // =================== صفحة ذكرياتنا ===================
   Widget _buildCoupleMemoriesPage() {
@@ -6450,6 +6773,475 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                     },
                     child: Text(existing == null
                       ? "✅ حفظ الكورس" : "✅ تحديث",
+                      style: const TextStyle(fontSize: 16)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+
+  // =================== صفحة المعلومات ===================
+  Widget _buildInfoPage() {
+    final cats = ["الكل","🕌 ديني","🔬 علمي","🏥 طبي","📜 تاريخي","⭐ مفضلة","📝 أخرى"];
+    final filtered = _infoCategory == "الكل"
+      ? _infoNotes
+      : _infoCategory == "⭐ مفضلة"
+        ? _infoNotes.where((n) => n.isFavorite).toList()
+        : _infoNotes.where((n) => n.category == _infoCategory).toList();
+
+    return Column(
+      children: [
+        // Header
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(20,18,20,22),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF0277BD), Color(0xFF29B6F6)]),
+          ),
+          child: Column(
+            children: [
+              const Text("💡 معلوماتي",
+                style: TextStyle(color: Colors.white, fontSize: 24,
+                  fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text("${_infoNotes.length} معلومة محفوظة",
+                style: const TextStyle(color: Colors.white70, fontSize: 13)),
+            ],
+          ),
+        ),
+
+        // فلتر الفئات
+        Container(
+          color: Colors.white,
+          height: 52,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            itemCount: cats.length,
+            itemBuilder: (ctx, i) {
+              final cat = cats[i];
+              final sel = _infoCategory == cat;
+              return GestureDetector(
+                onTap: () => setState(() => _infoCategory = cat),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: BoxDecoration(
+                    color: sel ? const Color(0xFF0277BD) : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: sel ? [BoxShadow(
+                      color: const Color(0xFF0277BD).withOpacity(0.3),
+                      blurRadius: 6)] : [],
+                  ),
+                  child: Text(cat,
+                    style: TextStyle(
+                      color: sel ? Colors.white : Colors.grey.shade700,
+                      fontWeight: sel ? FontWeight.bold : FontWeight.normal,
+                      fontSize: 12)),
+                ),
+              );
+            },
+          ),
+        ),
+        const Divider(height: 1),
+
+        // القائمة
+        Expanded(
+          child: filtered.isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text("💡", style: TextStyle(fontSize: 70)),
+                    const SizedBox(height: 12),
+                    Text(
+                      _infoNotes.isEmpty
+                        ? "سجّلي أول معلومة اليوم!\nكل معرفة تضيف نوراً 🌟"
+                        : "لا توجد معلومات في هذه الفئة",
+                      style: TextStyle(color: Colors.grey.shade500, fontSize: 15),
+                      textAlign: TextAlign.center),
+                  ],
+                ),
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.all(12),
+                itemCount: filtered.length,
+                itemBuilder: (ctx, i) {
+                  final n = filtered[i];
+                  final realIdx = _infoNotes.indexOf(n);
+                  final catColor = n.category.contains("دين")
+                    ? Colors.green.shade600
+                    : n.category.contains("علم")
+                      ? Colors.blue.shade600
+                      : n.category.contains("طب")
+                        ? Colors.red.shade500
+                        : n.category.contains("تاريخ")
+                          ? Colors.brown.shade500
+                          : Colors.blueGrey;
+                  return Dismissible(
+                    key: Key("info_$realIdx"),
+                    direction: DismissDirection.endToStart,
+                    background: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 20),
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade400,
+                        borderRadius: BorderRadius.circular(14)),
+                      child: const Icon(Icons.delete_sweep,
+                        color: Colors.white, size: 26),
+                    ),
+                    onDismissed: (_) {
+                      setState(() => _infoNotes.removeAt(realIdx));
+                      _saveAll();
+                    },
+                    child: Card(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                      elevation: 1,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () => _showInfoDetail(n, realIdx),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 46, height: 46,
+                                decoration: BoxDecoration(
+                                  color: catColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12)),
+                                child: Center(child: Text(n.emoji,
+                                  style: const TextStyle(fontSize: 24))),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(n.title,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold, fontSize: 14)),
+                                    const SizedBox(height: 4),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 7, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: catColor.withOpacity(0.12),
+                                        borderRadius: BorderRadius.circular(6)),
+                                      child: Text(n.category,
+                                        style: TextStyle(color: catColor,
+                                          fontSize: 10, fontWeight: FontWeight.w600)),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(n.content,
+                                      style: TextStyle(color: Colors.grey.shade600,
+                                        fontSize: 12),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis),
+                                  ],
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  setState(() =>
+                                    _infoNotes[realIdx].isFavorite =
+                                      !_infoNotes[realIdx].isFavorite);
+                                  _saveAll();
+                                },
+                                child: Icon(
+                                  n.isFavorite ? Icons.star : Icons.star_border,
+                                  color: n.isFavorite ? Colors.amber : Colors.grey,
+                                  size: 20),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+        ),
+
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: ElevatedButton.icon(
+            onPressed: _addInfoNote,
+            icon: const Icon(Icons.add),
+            label: const Text("إضافة معلومة جديدة 💡"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0277BD),
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 50),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14))),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showInfoDetail(InfoNote n, int idx) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        height: MediaQuery.of(context).size.height * 0.75,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        child: Column(
+          children: [
+            Container(
+              width: 44, height: 5, margin: const EdgeInsets.only(top: 12),
+              decoration: BoxDecoration(color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(3))),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                children: [
+                  Text(n.emoji, style: const TextStyle(fontSize: 40)),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(n.title,
+                          style: const TextStyle(fontSize: 18,
+                            fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(8)),
+                          child: Text(n.category,
+                            style: TextStyle(color: Colors.blue.shade700,
+                              fontSize: 12, fontWeight: FontWeight.w600))),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(14)),
+                  child: Text(n.content,
+                    style: const TextStyle(fontSize: 15, height: 1.8)),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16,8,16,24),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () { Navigator.pop(ctx); _editInfoNote(idx); },
+                      icon: const Icon(Icons.edit, size: 18),
+                      label: const Text("تعديل"),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF0277BD),
+                        side: const BorderSide(color: Color(0xFF0277BD)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12))),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0277BD),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12))),
+                      child: const Text("إغلاق"),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _addInfoNote()          => _showInfoDialog();
+  void _editInfoNote(int idx)  => _showInfoDialog(existing: _infoNotes[idx], idx: idx);
+
+  void _showInfoDialog({InfoNote? existing, int? idx}) {
+    final titleCtrl   = TextEditingController(text: existing?.title ?? "");
+    final contentCtrl = TextEditingController(text: existing?.content ?? "");
+    String selCat   = existing?.category ?? "📝 أخرى";
+    String selEmoji = existing?.emoji ?? "💡";
+    const emojis = ["💡","🌙","📖","🔬","🏥","📜","🌍","⚗️","🧬","🕌","🌟","🤔"];
+    const cats   = ["🕌 ديني","🔬 علمي","🏥 طبي","📜 تاريخي","📝 أخرى"];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.80,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.fromLTRB(20,14,20,14),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF0277BD), Color(0xFF29B6F6)]),
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(24))),
+                  child: Row(
+                    children: [
+                      Text(existing == null ? "💡 معلومة جديدة" : "✏️ تعديل",
+                        style: const TextStyle(color: Colors.white,
+                          fontSize: 18, fontWeight: FontWeight.bold)),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white70),
+                        onPressed: () => Navigator.pop(ctx)),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          controller: titleCtrl,
+                          decoration: InputDecoration(
+                            labelText: "عنوان المعلومة *",
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12))),
+                        ),
+                        const SizedBox(height: 14),
+                        const Text("الأيقونة:",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          height: 50,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: emojis.length,
+                            itemBuilder: (ctx, i) => GestureDetector(
+                              onTap: () => setS(() => selEmoji = emojis[i]),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                width: 44, height: 44,
+                                margin: const EdgeInsets.only(right: 6),
+                                decoration: BoxDecoration(
+                                  color: selEmoji == emojis[i]
+                                    ? Colors.blue.shade100 : Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: selEmoji == emojis[i]
+                                      ? Colors.blue : Colors.transparent,
+                                    width: 2)),
+                                child: Center(child: Text(emojis[i],
+                                  style: const TextStyle(fontSize: 22))),
+                              )),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        const Text("الفئة:",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 6, runSpacing: 6,
+                          children: cats.map((c) => GestureDetector(
+                            onTap: () => setS(() => selCat = c),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: selCat == c
+                                  ? const Color(0xFF0277BD) : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(10)),
+                              child: Text(c,
+                                style: TextStyle(
+                                  color: selCat == c
+                                    ? Colors.white : Colors.grey.shade700,
+                                  fontWeight: selCat == c
+                                    ? FontWeight.bold : FontWeight.normal,
+                                  fontSize: 12)),
+                            ),
+                          )).toList(),
+                        ),
+                        const SizedBox(height: 14),
+                        TextField(
+                          controller: contentCtrl,
+                          maxLines: 6,
+                          decoration: InputDecoration(
+                            labelText: "المعلومة *",
+                            hintText: "اكتبي المعلومة بالتفصيل...",
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                            alignLabelWithHint: true),
+                        ),
+                        const SizedBox(height: 20),
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18,0,18,24),
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0277BD),
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12))),
+                    onPressed: () {
+                      if (titleCtrl.text.trim().isEmpty ||
+                          contentCtrl.text.trim().isEmpty) return;
+                      final note = InfoNote(
+                        titleCtrl.text.trim(), contentCtrl.text.trim(), selCat,
+                        emoji: selEmoji,
+                        isFavorite: existing?.isFavorite ?? false);
+                      setState(() {
+                        if (idx != null) {
+                          _infoNotes[idx] = note;
+                        } else {
+                          _infoNotes.insert(0, note);
+                        }
+                      });
+                      _saveAll();
+                      Navigator.pop(ctx);
+                    },
+                    child: Text(existing == null ? "✅ حفظ المعلومة" : "✅ تحديث",
                       style: const TextStyle(fontSize: 16)),
                   ),
                 ),
