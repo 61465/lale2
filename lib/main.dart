@@ -10,7 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart'; // ✅ حذف path_
 
 void main() => runApp(const MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: AlaaAppHome(),
+      home: AlaaSplashScreen(),
     ));
 
 // ================ تعريف الحالات النفسية لآلاء ================
@@ -75,6 +75,238 @@ class Song {
   Song(this.name, this.path);
 }
 
+// ================================================================
+// ================ شاشة التحميل الدرامية ========================
+// ================================================================
+class AlaaSplashScreen extends StatefulWidget {
+  const AlaaSplashScreen({super.key});
+  @override
+  State<AlaaSplashScreen> createState() => _AlaaSplashScreenState();
+}
+
+class _AlaaSplashScreenState extends State<AlaaSplashScreen>
+    with TickerProviderStateMixin {
+  // الأحرف التي ستُكتب
+  final String _fullName = "Alaa";
+  int _visibleChars = 0;
+  bool _showCursor = true;
+  bool _showSubtitle = false;
+  bool _showGlow = false;
+  Timer? _typingTimer;
+  Timer? _cursorTimer;
+  late AnimationController _fadeController;
+  late AnimationController _scaleController;
+  late Animation<double> _fadeAnim;
+  late Animation<double> _scaleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _fadeController = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 800));
+    _scaleController = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 600));
+
+    _fadeAnim = CurvedAnimation(parent: _fadeController, curve: Curves.easeIn);
+    _scaleAnim = CurvedAnimation(parent: _scaleController, curve: Curves.elasticOut);
+
+    _fadeController.forward();
+
+    // كتابة الأحرف واحداً بعد الآخر
+    int delay = 0;
+    for (int i = 1; i <= _fullName.length; i++) {
+      final charIndex = i;
+      Future.delayed(Duration(milliseconds: 500 + delay), () {
+        if (mounted) setState(() => _visibleChars = charIndex);
+        if (charIndex == _fullName.length) {
+          // بعد اكتمال الاسم
+          Future.delayed(const Duration(milliseconds: 200), () {
+            if (mounted) {
+              setState(() { _showGlow = true; _scaleController.forward(); });
+              Future.delayed(const Duration(milliseconds: 400), () {
+                if (mounted) setState(() => _showSubtitle = true);
+                // الانتقال للتطبيق بعد ثانيتين
+                Future.delayed(const Duration(milliseconds: 2200), () {
+                  if (mounted) {
+                    Navigator.pushReplacement(context,
+                      PageRouteBuilder(
+                        pageBuilder: (_, __, ___) => const AlaaAppHome(),
+                        transitionDuration: const Duration(milliseconds: 800),
+                        transitionsBuilder: (_, anim, __, child) =>
+                          FadeTransition(opacity: anim, child: child),
+                      ),
+                    );
+                  }
+                });
+              });
+            }
+          });
+        }
+      });
+      delay += 280; // تأخير بين كل حرف
+    }
+
+    // وميض المؤشر
+    _cursorTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      if (mounted) setState(() => _showCursor = !_showCursor);
+    });
+  }
+
+  @override
+  void dispose() {
+    _typingTimer?.cancel();
+    _cursorTimer?.cancel();
+    _fadeController.dispose();
+    _scaleController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0a0a1a),
+      body: FadeTransition(
+        opacity: _fadeAnim,
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF0a0a1a), Color(0xFF1a0a2e), Color(0xFF0a1a2e)],
+            ),
+          ),
+          child: Stack(
+            children: [
+              // نجوم خلفية
+              ...List.generate(30, (i) {
+                final rand = Random(i * 7 + 3);
+                return Positioned(
+                  left: rand.nextDouble() * 400,
+                  top: rand.nextDouble() * 900,
+                  child: AnimatedOpacity(
+                    opacity: _showGlow ? 0.8 : 0.3,
+                    duration: Duration(milliseconds: 500 + i * 30),
+                    child: Text("✦",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: rand.nextDouble() * 8 + 4,
+                      )),
+                  ),
+                );
+              }),
+
+              // المحتوى المركزي
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // الاسم يُكتب
+                    ScaleTransition(
+                      scale: _visibleChars == _fullName.length ? _scaleAnim
+                        : const AlwaysStoppedAnimation(1.0),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          ...List.generate(_visibleChars, (i) => AnimatedOpacity(
+                            opacity: 1.0,
+                            duration: const Duration(milliseconds: 150),
+                            child: Text(
+                              _fullName[i],
+                              style: TextStyle(
+                                fontSize: 82,
+                                fontWeight: FontWeight.w100,
+                                color: Colors.white,
+                                letterSpacing: 8,
+                                shadows: _showGlow ? [
+                                  Shadow(color: Colors.pink.shade300, blurRadius: 30),
+                                  Shadow(color: Colors.purple.shade300, blurRadius: 60),
+                                ] : [],
+                              ),
+                            ),
+                          )),
+                          // مؤشر الكتابة
+                          if (_visibleChars < _fullName.length)
+                            AnimatedOpacity(
+                              opacity: _showCursor ? 1.0 : 0.0,
+                              duration: const Duration(milliseconds: 100),
+                              child: Container(
+                                width: 3,
+                                height: 70,
+                                margin: const EdgeInsets.only(left: 4, bottom: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.pink.shade300,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // خط تحت الاسم
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 600),
+                      width: _showGlow ? 120.0 : 0.0,
+                      height: 1.5,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.transparent,
+                            Colors.pink.shade300, Colors.transparent]),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // العبارة تحت الاسم
+                    AnimatedOpacity(
+                      opacity: _showSubtitle ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 800),
+                      child: Column(
+                        children: [
+                          Text("عالمكِ الخاص ✨",
+                            style: TextStyle(
+                              color: Colors.pink.shade200,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w300,
+                              letterSpacing: 2,
+                            )),
+                          const SizedBox(height: 8),
+                          Text("يُحمَّل بكل الحب 💕",
+                            style: TextStyle(color: Colors.white30, fontSize: 13)),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 50),
+
+                    // مؤشر التحميل
+                    AnimatedOpacity(
+                      opacity: _showSubtitle ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 600),
+                      child: SizedBox(
+                        width: 100,
+                        child: LinearProgressIndicator(
+                          backgroundColor: Colors.white10,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.pink.shade300),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ================ الصفحة الرئيسية ================
 class AlaaAppHome extends StatefulWidget {
   const AlaaAppHome({super.key});
@@ -90,8 +322,13 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
   
   // متغيرات الحالة المزاجية
   AlaaMood currentMood = AlaaMood.peaceful;
-  bool _isSidebarOpen = true; // ✅ للتحكم في إظهار/إخفاء القائمة
-  bool _isPlaying = false; // ✅ حالة تشغيل/إيقاف الموسيقى
+  bool _isSidebarOpen = false; // مغلقة عند الفتح
+  Timer? _clockTimer;
+  DateTime _now = DateTime.now();
+  bool _isPlaying = false;
+  List<String> _cinemaVideos = [];          // صفحة السينما
+  Timer? _timeOfDayTimer;                   // تحديث وقت اليوم
+  String _timeOfDay = "morning";            // morning/afternoon/sunset/night
 
   // ================ متغيرات الورد اليومي ================
   int _currentDailyMessageIndex = 0;
@@ -128,6 +365,14 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     {"name": "آلاء عفاش", "desc": "فنانة تشكيلية رائعة"},
     {"name": "آلاء حسانين", "desc": "أديبة وشاعرة موهوبة"},
     {"name": "آلاء المستقبل 🌸", "desc": "ممرضة ستغيّر حياة الكثيرين"},
+  ];
+  List<Map<String, String>> _alaaGoals = [
+    {"goal": "التخرج من كلية التمريض 🎓", "done": "false"},
+    {"goal": "أكون ممرضة محترفة 👩‍⚕️", "done": "false"},
+  ];
+  List<String> _alaaQuotes = [
+    "النجاح ليس نهاية الطريق، بل بداية رحلة أجمل 🌟",
+    "أنتِ أقوى مما تتخيلين 💪",
   ];
   String? lastAnalysisResult;
   
@@ -182,6 +427,12 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     
     _loadSavedData();
     _initDefaultData();
+    _updateTimeOfDay();
+    _timeOfDayTimer = Timer.periodic(const Duration(minutes: 1), (_) => _updateTimeOfDay());
+    // ساعة حقيقية
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _now = DateTime.now());
+    });
     
     // إضافة بعض النجوم الافتراضية
     for (int i = 0; i < 10; i++) {
@@ -580,27 +831,34 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
   Future<void> _viewFile(String path) async {
     try {
       File file = File(path);
-      if (await file.exists()) {
-        final Uri uri = Uri.file(path);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri);
-        } else {
-          if (!mounted) return; // ✅ إصلاح
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("لا يمكن فتح هذا النوع من الملفات")),
-          );
-        }
-      } else {
-        if (!mounted) return; // ✅ إصلاح
+      if (!await file.exists()) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("الملف غير موجود")),
-        );
+          const SnackBar(content: Text("⚠️ الملف غير موجود")));
+        return;
+      }
+      final ext = path.split('.').last.toLowerCase();
+      // Images - show in-app viewer
+      if (['jpg','jpeg','png','gif','webp','bmp'].contains(ext)) {
+        if (!mounted) return;
+        Navigator.push(context, MaterialPageRoute(
+          builder: (_) => _ImageViewerPage(imagePath: path),
+        ));
+        return;
+      }
+      // PDF & other - launch external
+      final Uri uri = Uri.file(path);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("⚠️ لا يوجد تطبيق لفتح هذا الملف")));
       }
     } catch (e) {
-      if (!mounted) return; // ✅ إصلاح
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("خطأ في فتح الملف: $e")),
-      );
+        SnackBar(content: Text("خطأ: $e")));
     }
   }
 
@@ -771,6 +1029,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       case 13: return [const Color(0xFFF3E5F5), const Color(0xFFE1BEE7)];
       case 14: return [const Color(0xFFE8F5E9), const Color(0xFFC8E6C9)];
       case 15: return [const Color(0xFFFCE4EC), const Color(0xFFF8BBD9)];
+      case 16: return [const Color(0xFF0a0a0a), const Color(0xFF1a1a1a)];
       default: return [const Color(0xFFFDEEF2), const Color(0xFFFFF0F5)];
     }
   }
@@ -807,6 +1066,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                 _sidebarItem(8, "ألعابي", Icons.videogame_asset),
                 _sidebarItem(9, "الموسيقى", Icons.music_note),
                 _sidebarItem(11, "📚 التمريض", Icons.medical_services),
+                _sidebarItem(16, "🎬 السينما", Icons.movie),
                 const Divider(),
                 _sidebarItem(12, "🌙 ورد يومي", Icons.favorite_border),
                 _sidebarItem(13, "⏱️ بومودورو", Icons.timer),
@@ -960,6 +1220,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       case 13: return _buildPomodoroPage();
       case 14: return _buildDayCounterPage();
       case 15: return _buildLockedMessagesPage();
+      case 16: return _buildCinemaPage();
       default: return _buildComingSoon();
     }
   }
@@ -968,38 +1229,323 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
   
   Widget _buildDashboard() {
     int completedTasks = alaaTasks.where((t) => t.isDone).length;
-    String dailyQuote = dailyQuotes[DateTime.now().day % dailyQuotes.length];
+    int totalTasks = alaaTasks.length;
+    String dailyQuote = dailyQuotes[_now.day % dailyQuotes.length];
 
-    return Padding(
-      padding: const EdgeInsets.all(20),
+    // تحديد تحية الوقت
+    int hour = _now.hour;
+    String greeting;
+    String greetEmoji;
+    if (hour >= 5 && hour < 12) { greeting = "صباح النور يا آلاء"; greetEmoji = "🌅"; }
+    else if (hour >= 12 && hour < 17) { greeting = "طاب مساؤكِ يا أميرة"; greetEmoji = "☀️"; }
+    else if (hour >= 17 && hour < 20) { greeting = "غروب جميل مثلكِ"; greetEmoji = "🌇"; }
+    else { greeting = "تصبحين على خير يا نجمتي"; greetEmoji = "🌙"; }
+
+    // يوم الأسبوع عربي
+    const arabicDays = ["الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت","الأحد"];
+    const arabicMonths = ["يناير","فبراير","مارس","أبريل","مايو","يونيو",
+      "يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+    String dayName = arabicDays[_now.weekday - 1];
+    String monthName = arabicMonths[_now.month - 1];
+    String fullDate = "$dayName، ${_now.day} $monthName ${_now.year}";
+
+    // تنسيق الساعة
+    int h = _now.hour % 12;
+    if (h == 0) h = 12;
+    String ampm = _now.hour < 12 ? "ص" : "م";
+    String timeStr = "${h.toString().padLeft(2,'0')}:${_now.minute.toString().padLeft(2,'0')}:${_now.second.toString().padLeft(2,'0')}";
+
+    // ألوان حسب الوقت
+    List<Color> bgColors = _getSkyColors();
+
+    return SingleChildScrollView(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildVibeCard("🧠 حالتك النفسية", _getMoodAnalysisTitle(currentMood)),
-          const SizedBox(height: 15),
-          _buildAchievementCard("📊 إنجازات اليوم", "$completedTasks مهام مكتملة"),
-          const SizedBox(height: 15),
-          _buildDailyQuote(dailyQuote),
-          if (lastAnalysisResult != null) ...[
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Colors.purple, width: 2),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text("آخر تحليل:", style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Text(lastAnalysisResult!),
-                ],
+          // ===== بطاقة الوقت الرئيسية =====
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(20, 40, 20, 30),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: bgColors,
               ),
             ),
-          ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // تحية + اسم
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(greetEmoji, style: const TextStyle(fontSize: 22)),
+                    const SizedBox(width: 8),
+                    Text(greeting,
+                      style: const TextStyle(color: Colors.white70, fontSize: 15)),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // الساعة الكبيرة
+                Text(timeStr,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 58,
+                    fontWeight: FontWeight.w200,
+                    letterSpacing: 4,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+                Text(ampm,
+                  style: const TextStyle(color: Colors.white60, fontSize: 18)),
+                const SizedBox(height: 10),
+                // التاريخ
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white12,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(fullDate,
+                    style: const TextStyle(color: Colors.white, fontSize: 14)),
+                ),
+                const SizedBox(height: 20),
+                // شريط التقدم في اليوم
+                Column(
+                  children: [
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      const Text("تقدم اليوم", style: TextStyle(color: Colors.white60, fontSize: 12)),
+                      Text("${((_now.hour * 60 + _now.minute) / 1440 * 100).toInt()}%",
+                        style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                    ]),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: LinearProgressIndicator(
+                        value: (_now.hour * 60 + _now.minute) / 1440,
+                        minHeight: 6,
+                        backgroundColor: Colors.white24,
+                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ===== الحالة المزاجية + الإنجازات =====
+                Row(
+                  children: [
+                    // الحالة
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.pink.shade50,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.pink.shade100),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text("حالتكِ اليوم", style: TextStyle(color: Colors.grey, fontSize: 11)),
+                            const SizedBox(height: 4),
+                            Text(_getMoodEmoji(currentMood), style: const TextStyle(fontSize: 28)),
+                            Text(_getMoodAnalysisTitle(currentMood),
+                              style: TextStyle(color: Colors.pink.shade700, fontSize: 12,
+                                fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    // الإنجازات
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.amber.shade100),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text("مهامكِ اليوم", style: TextStyle(color: Colors.grey, fontSize: 11)),
+                            const SizedBox(height: 4),
+                            Text("$completedTasks/$totalTasks",
+                              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold,
+                                color: Colors.amber.shade700)),
+                            const Text("مهمة منجزة ✅",
+                              style: TextStyle(color: Colors.orange, fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    // البومودورو
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _selectedIndex = 13),
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.purple.shade50,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.purple.shade100),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text("البومودورو", style: TextStyle(color: Colors.grey, fontSize: 11)),
+                              const SizedBox(height: 4),
+                              Text("$_pomodoroCount", style: TextStyle(fontSize: 28,
+                                fontWeight: FontWeight.bold, color: Colors.purple.shade700)),
+                              const Text("جلسة تركيز 🍅",
+                                style: TextStyle(color: Colors.purple, fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // ===== اقتباس اليوم =====
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.purple.shade50, Colors.pink.shade50]),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.pink.shade100),
+                  ),
+                  child: Row(
+                    children: [
+                      const Text("❝", style: TextStyle(fontSize: 30, color: Colors.pink)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(dailyQuote,
+                          style: const TextStyle(fontSize: 14, height: 1.5,
+                            fontStyle: FontStyle.italic)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // ===== رسالة اليوم من الزوج =====
+                GestureDetector(
+                  onTap: () => setState(() => _selectedIndex = 12),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [const Color(0xFF1a1a2e), const Color(0xFF2d1b4e)]),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        const Text("💌", style: TextStyle(fontSize: 28)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text("رسالة اليوم من زوجكِ",
+                                style: TextStyle(color: Colors.white60, fontSize: 11)),
+                              const SizedBox(height: 4),
+                              Text(
+                                _husbandMessages[_now.weekday % _husbandMessages.length]["msg"] ?? "",
+                                style: const TextStyle(color: Colors.white,
+                                  fontSize: 16, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right, color: Colors.white30),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // ===== اختصارات سريعة =====
+                const Text("وصول سريع ⚡",
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+                GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 4,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  childAspectRatio: 0.85,
+                  children: [
+                    _quickAccessItem(1, "المهام", "✅", Colors.green),
+                    _quickAccessItem(4, "الأدبي", "✍️", Colors.purple),
+                    _quickAccessItem(9, "موسيقى", "🎵", Colors.pink),
+                    _quickAccessItem(11, "تمريض", "🏥", Colors.blue),
+                    _quickAccessItem(7, "ذكريات", "📸", Colors.orange),
+                    _quickAccessItem(6, "روايات", "📚", Colors.teal),
+                    _quickAccessItem(16, "سينما", "🎬", Colors.red),
+                    _quickAccessItem(13, "تركيز", "⏱️", Colors.indigo),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  String _getMoodEmoji(AlaaMood mood) {
+    switch (mood) {
+      case AlaaMood.warrior: return "⚔️";
+      case AlaaMood.cute: return "🌸";
+      case AlaaMood.peaceful: return "🌿";
+      case AlaaMood.romantic: return "💕";
+      case AlaaMood.pensive: return "🌙";
+      case AlaaMood.exhausted: return "😴";
+    }
+  }
+
+  Widget _quickAccessItem(int index, String label, String emoji, Color color) {
+    bool isSelected = _selectedIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedIndex = index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          color: isSelected ? color : color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withOpacity(0.3)),
+          boxShadow: isSelected ? [BoxShadow(color: color.withOpacity(0.3), blurRadius: 8)] : [],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 26)),
+            const SizedBox(height: 4),
+            Text(label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? Colors.white : color,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1104,6 +1650,34 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     );
   }
 
+  void _updateTimeOfDay() {
+    final hour = DateTime.now().hour;
+    String tod;
+    if (hour >= 5 && hour < 10) tod = "morning";
+    else if (hour >= 10 && hour < 16) tod = "afternoon";
+    else if (hour >= 16 && hour < 19) tod = "sunset";
+    else tod = "night";
+    if (tod != _timeOfDay) setState(() => _timeOfDay = tod);
+  }
+
+  List<Color> _getSkyColors() {
+    switch (_timeOfDay) {
+      case "morning":  return [const Color(0xFFFFE0B2), const Color(0xFF87CEEB)];
+      case "afternoon":return [const Color(0xFF1976D2), const Color(0xFF42A5F5)];
+      case "sunset":   return [const Color(0xFFFF6F00), const Color(0xFFE91E63)];
+      default:         return [const Color(0xFF0B0B2B), const Color(0xFF1B1B4B)];
+    }
+  }
+
+  String _getSkyEmoji() {
+    switch (_timeOfDay) {
+      case "morning":   return "🌅 صباح الجمال يا آلاء";
+      case "afternoon": return "☀️ نهار مشرق مثلكِ";
+      case "sunset":    return "🌇 غروب ساحر يا أميرة";
+      default:          return "🌙 ليل هادئ يا نجمتي";
+    }
+  }
+
   Widget _buildLivingSky() {
     return AnimatedContainer(
       duration: const Duration(seconds: 3),
@@ -1111,13 +1685,12 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: isNightMode 
-              ? [Colors.black, Colors.indigo.shade900]
-              : [Colors.blue.shade300, Colors.orange.shade200],
+          colors: _getSkyColors(),
         ),
       ),
       child: Stack(
         children: [
+          // النجوم
           ...stars.asMap().entries.map((entry) {
             int idx = entry.key;
             StarModel star = entry.value;
@@ -1130,45 +1703,127 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                   double floatY = sin(_skyAnimationController.value * 2 * pi + star.floatOffset) * 5;
                   return Transform.translate(
                     offset: Offset(0, floatY),
-                    child: GestureDetector(
-                      onPanUpdate: (details) {
-                        setState(() {
+                    child: Draggable<int>(
+                      data: idx,
+                      feedback: Text(
+                        _timeOfDay == "night" ? "⭐" : _timeOfDay == "sunset" ? "✨" : "🌸",
+                        style: TextStyle(fontSize: 15.0 + (idx % 3) * 5),
+                      ),
+                      childWhenDragging: const SizedBox.shrink(),
+                      onDragEnd: (drag) => setState(() {
+                        final box = context.findRenderObject() as RenderBox?;
+                        if (box != null) {
+                          final local = box.globalToLocal(drag.offset);
+                          star.x = local.dx;
+                          star.y = local.dy;
+                        }
+                      }),
+                      child: GestureDetector(
+                        onPanUpdate: (details) => setState(() {
                           star.x += details.delta.dx;
                           star.y += details.delta.dy;
-                        });
-                      },
-                      child: Icon(Icons.star, color: isNightMode ? Colors.yellow : Colors.orange,
-                        size: 15 + (idx % 3) * 5),
+                        }),
+                        child: Text(
+                          _timeOfDay == "night" ? "⭐" : _timeOfDay == "sunset" ? "✨" : "🌸",
+                          style: TextStyle(fontSize: 15.0 + (idx % 3) * 5),
+                        ),
+                      ),
                     ),
                   );
                 },
               ),
             );
           }),
+
+          // عنصر الوقت في الأعلى
           Positioned(
-            bottom: 30,
+            top: 20,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.black26,
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: Text(_getSkyEmoji(),
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
+              ),
+            ),
+          ),
+
+          // الأزرار في الأسفل
+          Positioned(
+            bottom: 20,
             left: 0,
             right: 0,
             child: Column(
               children: [
+                // سلة المهملات للنجوم
+                if (stars.isNotEmpty)
+                  DragTarget<int>(
+                    onAcceptWithDetails: (details) {
+                      setState(() => stars.removeAt(details.data));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("🗑️ تم حذف النجمة"), duration: Duration(seconds: 1)),
+                      );
+                    },
+                    builder: (ctx, candidateData, rejectedData) => AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: candidateData.isNotEmpty ? Colors.red : Colors.black38,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: candidateData.isNotEmpty ? Colors.red : Colors.white30,
+                          width: 2,
+                        ),
+                      ),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.delete_outline,
+                          color: candidateData.isNotEmpty ? Colors.white : Colors.white60, size: 20),
+                        const SizedBox(width: 6),
+                        Text("🗑️ اسحبي النجمة هنا لحذفها",
+                          style: TextStyle(
+                            color: candidateData.isNotEmpty ? Colors.white : Colors.white60,
+                            fontSize: 12)),
+                      ]),
+                    ),
+                  ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     ElevatedButton.icon(
                       onPressed: _addStar,
-                      icon: const Icon(Icons.star),
-                      label: const Text("✨ نجمة جديدة"),
+                      icon: const Text("⭐"),
+                      label: const Text("نجمة جديدة"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white24,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      ),
                     ),
                     const SizedBox(width: 10),
                     ElevatedButton.icon(
-                      onPressed: () => setState(() => isNightMode = !isNightMode),
-                      icon: Icon(isNightMode ? Icons.wb_sunny : Icons.nights_stay),
-                      label: Text(isNightMode ? "شروق الشمس" : "سماء النجوم"),
+                      onPressed: () => setState(() {
+                        isNightMode = !isNightMode;
+                        _timeOfDay = isNightMode ? "night" : "morning";
+                      }),
+                      icon: Icon(_timeOfDay == "night" ? Icons.wb_sunny : Icons.nights_stay),
+                      label: Text(_timeOfDay == "night" ? "نهار" : "ليل"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white24,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      ),
                     ),
                   ],
                 ),
+                const SizedBox(height: 8),
                 const Text("اسحبي النجوم لتشكيل اسمكِ في السماء ⭐",
-                  style: TextStyle(color: Colors.white70)),
+                  style: TextStyle(color: Colors.white70, fontSize: 12)),
               ],
             ),
           ),
@@ -1730,6 +2385,8 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     _feelingController.dispose();
     _nursingNoteController.dispose();
     _pomodoroTimer?.cancel();
+    _timeOfDayTimer?.cancel();
+    _clockTimer?.cancel();
     _player.dispose();
     super.dispose();
   }
@@ -1824,35 +2481,111 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // العنوان
-          const Center(
-            child: Column(
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.pink.shade300, Colors.purple.shade300],
+                begin: Alignment.topLeft, end: Alignment.bottomRight),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Column(
               children: [
-                Icon(Icons.auto_awesome, size: 60, color: Colors.pinkAccent),
-                SizedBox(height: 10),
-                Text("ركن آلاء الخاص 👑",
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.pink)),
-                SizedBox(height: 5),
-                Text("كل ما يخصّكِ في مكان واحد",
-                  style: TextStyle(color: Colors.black54)),
+                Text("👑", style: TextStyle(fontSize: 50)),
+                SizedBox(height: 8),
+                Text("ركن آلاء الخاص",
+                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white)),
+                SizedBox(height: 4),
+                Text("كل ما يخصّكِ في مكان واحد ✨",
+                  style: TextStyle(color: Colors.white70, fontSize: 14)),
               ],
             ),
           ),
-          const SizedBox(height: 30),
+          const SizedBox(height: 24),
+
+          // معنى الاسم في القرآن
+          _alaaSection("📖 اسمكِ في القرآن الكريم"),
+          Card(
+            elevation: 3,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [Colors.green.shade50, Colors.teal.shade50]),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade100,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Text("34", style: TextStyle(
+                          fontSize: 22, fontWeight: FontWeight.bold, color: Colors.green)),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text("مرة ذُكرت كلمة آلاء في القرآن الكريم
+تعني النعم والعطايا الإلهية التي لا تُحصى",
+                          style: TextStyle(fontSize: 14, height: 1.5)),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 20),
+                  const Text(
+                    "فَبِأَيِّ آلَاءِ رَبِّكُمَا تُكَذِّبَانِ",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold,
+                      color: Colors.green, fontFamily: 'serif'),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 4),
+                  const Text("— سورة الرحمن",
+                    style: TextStyle(color: Colors.grey, fontSize: 12)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
 
           // معنى الاسم
-          _alaaSection("📖 معنى اسمكِ في اللغة والحضارات"),
+          _alaaSection("📚 معنى اسمكِ في اللغة"),
           Card(
             elevation: 2,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
             child: const Padding(
               padding: EdgeInsets.all(15),
               child: Text(
-                'آلاء هو اسم عربي أصيل يعني «النعم» التي لا تُحصى،\nذُكر في القرآن الكريم 34 مرة ليدل على عظمة عطايا الخالق.\n\nفي علم النفس، يرمز الاسم للشخصية المعطاءة والذكية والمبدعة.',
-                style: TextStyle(fontSize: 15, height: 1.6),
+                'آلاء هو اسم عربي أصيل يعني «النعم» التي لا تُحصى،
+ذُكر في القرآن الكريم 34 مرة ليدل على عظمة عطايا الخالق.
+
+في علم النفس، يرمز الاسم للشخصية المعطاءة والذكية والمبدعة،
+صاحبته تتميز بالعطف والذكاء العاطفي العميق.',
+                style: TextStyle(fontSize: 15, height: 1.7),
               ),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+
+          // صفات اسم آلاء
+          _alaaSection("💎 صفات تحملها صاحبة هذا الاسم"),
+          Wrap(
+            spacing: 8, runSpacing: 8,
+            children: [
+              "💕 محبوبة", "🌟 موهوبة", "🧠 ذكية", "🌸 رقيقة",
+              "💪 قوية", "🎨 مبدعة", "📚 مثقفة", "🌙 حالمة",
+              "❤️ عطوفة", "👑 قيادية",
+            ].map((trait) => Chip(
+              label: Text(trait, style: const TextStyle(fontSize: 13)),
+              backgroundColor: Colors.pink.shade50,
+              side: BorderSide(color: Colors.pink.shade200),
+            )).toList(),
+          ),
+          const SizedBox(height: 16),
 
           // الزخارف
           _alaaSection("✍️ اسمكِ بزخارف مختلفة (اضغطي للنسخ)"),
@@ -1978,6 +2711,73 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
               }
             },
             child: const Text("إضافة ✨", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _addAlaaGoal() {
+    if (!mounted) return;
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("🎯 إضافة هدف أو حلم"),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: "مثل: أكون ممرضة محترفة...",
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("إلغاء")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
+            onPressed: () {
+              if (ctrl.text.isNotEmpty) {
+                setState(() => _alaaGoals.add({"goal": ctrl.text, "done": "false"}));
+                Navigator.pop(ctx);
+              }
+            },
+            child: const Text("إضافة ✨", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _addAlaaQuote() {
+    if (!mounted) return;
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("💬 إضافة اقتباس مفضل"),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLines: 3,
+          decoration: InputDecoration(
+            hintText: "اكتبي اقتباسكِ المفضل...",
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("إلغاء")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.pink),
+            onPressed: () {
+              if (ctrl.text.isNotEmpty) {
+                setState(() => _alaaQuotes.add(ctrl.text));
+                Navigator.pop(ctx);
+              }
+            },
+            child: const Text("حفظ 💕", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -2809,6 +3609,333 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("إغلاق 💕")),
         ],
+      ),
+    );
+  }
+
+  void _editNursingCell(int rowIndex, String field) {
+    if (!mounted) return;
+    final ctrl = TextEditingController(
+      text: _nursingSchedule.length > rowIndex ? _nursingSchedule[rowIndex][field] ?? "" : "");
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(field == "subject" ? "📚 اسم المادة" : "🕐 وقت المحاضرة"),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: field == "subject" ? "مثل: تشريح، فسيولوجيا..." : "مثل: 8:00 ص",
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("إلغاء")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade700),
+            onPressed: () {
+              setState(() {
+                while (_nursingSchedule.length <= rowIndex) {
+                  _nursingSchedule.add({"subject": "", "time": ""});
+                }
+                _nursingSchedule[rowIndex][field] = ctrl.text;
+              });
+              Navigator.pop(ctx);
+            },
+            child: const Text("حفظ ✅", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ================================================================
+  // ================ صفحة السينما ===================================
+  // ================================================================
+  Widget _buildCinemaPage() {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Column(
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 50, 16, 16),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF1a1a1a), Color(0xFF0a0a0a)],
+              ),
+            ),
+            child: Row(
+              children: [
+                const Text("🎬", style: TextStyle(fontSize: 28)),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("سينما آلاء 🍿",
+                        style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                      Text("أفلامكِ في مكان واحد",
+                        style: TextStyle(color: Colors.white38, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: _addCinemaVideo,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text("إضافة فيديو"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade700,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // قائمة الفيديوهات
+          Expanded(
+            child: _cinemaVideos.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text("🎥", style: TextStyle(fontSize: 70)),
+                      const SizedBox(height: 16),
+                      const Text("لا توجد أفلام بعد يا آلاء",
+                        style: TextStyle(color: Colors.white60, fontSize: 18)),
+                      const SizedBox(height: 8),
+                      const Text("أضيفي أول فيديو لتبدأي السينما 🍿",
+                        style: TextStyle(color: Colors.white38, fontSize: 14)),
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: _addCinemaVideo,
+                        icon: const Icon(Icons.movie),
+                        label: const Text("إضافة فيديو"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade700,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: _cinemaVideos.length,
+                  itemBuilder: (ctx, i) {
+                    final path = _cinemaVideos[i];
+                    final name = path.split('/').last.split('\\').last;
+                    return Dismissible(
+                      key: Key('cinema_$i'),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 20),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade800,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Icon(Icons.delete, color: Colors.white),
+                      ),
+                      onDismissed: (_) => setState(() => _cinemaVideos.removeAt(i)),
+                      child: GestureDetector(
+                        onTap: () => _playCinemaVideo(path, name),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1e1e1e),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white10),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 56,
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade900,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(Icons.play_circle_filled,
+                                  color: Colors.white, size: 32),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(name,
+                                      style: const TextStyle(color: Colors.white,
+                                        fontSize: 15, fontWeight: FontWeight.w500),
+                                      maxLines: 2, overflow: TextOverflow.ellipsis),
+                                    const SizedBox(height: 4),
+                                    const Text("اضغطي للمشاهدة 🎬",
+                                      style: TextStyle(color: Colors.white38, fontSize: 12)),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.chevron_right, color: Colors.white24),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _addCinemaVideo() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.video,
+      );
+      if (result != null && result.files.single.path != null) {
+        if (!mounted) return;
+        setState(() => _cinemaVideos.insert(0, result.files.single.path!));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("خطأ: $e")));
+    }
+  }
+
+  Future<void> _playCinemaVideo(String path, String name) async {
+    if (!mounted) return;
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => _VideoPlayerPage(videoPath: path, videoName: name),
+    ));
+  }
+}
+
+// ================================================================
+// ================ صفحة عرض الصور ================================
+// ================================================================
+class _ImageViewerPage extends StatelessWidget {
+  final String imagePath;
+  const _ImageViewerPage({required this.imagePath});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(imagePath.split('/').last,
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+          overflow: TextOverflow.ellipsis),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share, color: Colors.white),
+            onPressed: () async {
+              final uri = Uri.file(imagePath);
+              if (await canLaunchUrl(uri)) launchUrl(uri);
+            },
+          ),
+        ],
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          minScale: 0.5,
+          maxScale: 4.0,
+          child: Image.file(
+            File(imagePath),
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => const Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.broken_image, color: Colors.white54, size: 60),
+                SizedBox(height: 10),
+                Text("لا يمكن عرض الصورة", style: TextStyle(color: Colors.white54)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ================================================================
+// ================ صفحة تشغيل الفيديو =============================
+// ================================================================
+class _VideoPlayerPage extends StatefulWidget {
+  final String videoPath;
+  final String videoName;
+  const _VideoPlayerPage({required this.videoPath, required this.videoName});
+
+  @override
+  State<_VideoPlayerPage> createState() => _VideoPlayerPageState();
+}
+
+class _VideoPlayerPageState extends State<_VideoPlayerPage> {
+  bool _launched = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _openVideo();
+  }
+
+  Future<void> _openVideo() async {
+    final uri = Uri.file(widget.videoPath);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      setState(() => _launched = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(widget.videoName,
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+          overflow: TextOverflow.ellipsis),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text("🎬", style: TextStyle(fontSize: 80)),
+            const SizedBox(height: 20),
+            Text(_launched ? "جارٍ التشغيل..." : "جاري فتح الفيديو...",
+              style: const TextStyle(color: Colors.white, fontSize: 18)),
+            const SizedBox(height: 8),
+            const Text("يُفتح في مشغّل الفيديو الخارجي",
+              style: TextStyle(color: Colors.white38, fontSize: 13)),
+            const SizedBox(height: 30),
+            ElevatedButton.icon(
+              onPressed: _openVideo,
+              icon: const Icon(Icons.play_arrow),
+              label: const Text("إعادة التشغيل"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("رجوع", style: TextStyle(color: Colors.white54)),
+            ),
+          ],
+        ),
       ),
     );
   }
