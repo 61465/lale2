@@ -2105,17 +2105,16 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     if (!_meditationSoundOn) return;
     try {
       final file = _getMeditationSoundFile(scene);
+      // تحميل الملف من assets كـ bytes ثم تشغيله - يعمل على جميع الأجهزة
+      final bytes = await rootBundle.load('audio/$file');
       await _meditationPlayer.stop();
       await _meditationPlayer.setVolume(1.0);
       await _meditationPlayer.setReleaseMode(ReleaseMode.loop);
-      await _meditationPlayer.play(AssetSource('audio/$file'));
+      await _meditationPlayer.play(
+        BytesSource(bytes.buffer.asUint8List()),
+      );
     } catch (e) {
       debugPrint('Sound error: $e');
-      // جرب DeviceFileSource كبديل
-      try {
-        final file = _getMeditationSoundFile(scene);
-        await _meditationPlayer.play(AssetSource(file));
-      } catch (_) {}
     }
   }
 
@@ -2136,31 +2135,6 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                 progress: _skyAnimationController.value,
                 timeOfDay: _timeOfDay,
               ),
-            ),
-          ),
-        ),
-
-        // زر اختبار الصوت (مؤقت)
-        Positioned(
-          top: 70, right: 12,
-          child: GestureDetector(
-            onTap: () async {
-              await _meditationPlayer.stop();
-              await _meditationPlayer.setVolume(1.0);
-              await _meditationPlayer.setReleaseMode(ReleaseMode.loop);
-              final src = AssetSource('audio/${_getMeditationSoundFile(_natureScene)}');
-              await _meditationPlayer.play(src);
-              if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('تشغيل: audio/${_getMeditationSoundFile(_natureScene)}'),
-                  duration: const Duration(seconds: 3)));
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.85),
-                borderRadius: BorderRadius.circular(12)),
-              child: const Text("🔊 اختبار الصوت",
-                style: TextStyle(color: Colors.white, fontSize: 11)),
             ),
           ),
         ),
