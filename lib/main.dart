@@ -2290,8 +2290,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                               children: [
                                 const Text("📦", style: TextStyle(fontSize: 60)),
                                 const SizedBox(height: 12),
-                                Text("الصندوق فارغ!
-أضيفا أول فيديو معاً 🎬",
+                                Text("الصندوق فارغ!\nأضيفا أول فيديو معاً 🎬",
                                   style: TextStyle(color: Colors.grey.shade500,
                                     fontSize: 15),
                                   textAlign: TextAlign.center),
@@ -4550,8 +4549,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
           const SizedBox(height: 20),
           Text(
             _recipes.isEmpty
-              ? "مطبخكِ فارغ يا آلاء!
-أضيفي أول وصفة 🍳"
+              ? "مطبخكِ فارغ يا آلاء!\nأضيفي أول وصفة 🍳"
               : "لا توجد وصفات في هذه الفئة",
             style: TextStyle(color: Colors.grey.shade500, fontSize: 16,
               height: 1.6),
@@ -4937,10 +4935,8 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                           decoration: InputDecoration(
                             labelText: "اسم الوصفة *",
                             prefixText: "$selEmoji  ",
-                            filled: true, fillColor: Colors.grey.shade50,
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none),
+                              borderRadius: BorderRadius.circular(12)),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -5017,14 +5013,9 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                           controller: ingrCtrl,
                           maxLines: 5,
                           decoration: InputDecoration(
-                            hintText: "مثال:
-2 كوب دقيق
-1 بيضة
-ملح حسب الذوق",
-                            filled: true, fillColor: Colors.grey.shade50,
+                            hintText: "مثال: 2 كوب دقيق، 1 بيضة، ملح...",
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none),
+                              borderRadius: BorderRadius.circular(12)),
                             alignLabelWithHint: true,
                           ),
                         ),
@@ -5038,13 +5029,9 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                           controller: stepsCtrl,
                           maxLines: 6,
                           decoration: InputDecoration(
-                            hintText: "1. سخّني الفرن على 180 درجة
-2. اخلطي المكونات
-3. ...",
-                            filled: true, fillColor: Colors.grey.shade50,
+                            hintText: "1. سخّني الفرن...\n2. اخلطي المكونات...\n3. ...",
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none),
+                              borderRadius: BorderRadius.circular(12)),
                             alignLabelWithHint: true,
                           ),
                         ),
