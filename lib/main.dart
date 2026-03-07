@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // ✅ مضاف
+import 'package:flutter/services.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:video_player/video_player.dart';
+import 'package:open_file/open_file.dart';
 import 'dart:async';
 import 'dart:math';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // ✅ حذف path_provider غير المستخدم
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() => runApp(const MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -840,7 +842,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       }
       final ext = path.split('.').last.toLowerCase();
 
-      // الصور: نفتحها داخل التطبيق
+      // ===== الصور: داخل التطبيق =====
       if (['jpg','jpeg','png','gif','webp','bmp','heic'].contains(ext)) {
         if (!mounted) return;
         await Navigator.push(context, MaterialPageRoute(
@@ -849,26 +851,21 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
         return;
       }
 
-      // الفيديو: نفتحه في صفحة السينما الداخلية
-      if (['mp4','mkv','avi','mov','webm','3gp'].contains(ext)) {
+      // ===== الفيديو: مشغل داخلي =====
+      if (['mp4','mkv','avi','mov','webm','3gp','m4v'].contains(ext)) {
         if (!mounted) return;
-        final name = path.split('/').last;
+        final name = path.split(Platform.pathSeparator).last;
         await Navigator.push(context, MaterialPageRoute(
           builder: (_) => _VideoPlayerPage(videoPath: path, videoName: name),
         ));
         return;
       }
 
-      // PDF وغيره: نفتح بتطبيق خارجي مع رسالة
-      final uri = Uri.file(path);
-      bool opened = false;
-      try { opened = await launchUrl(uri, mode: LaunchMode.externalApplication); } catch (_) {}
-      if (!opened) {
-        try { opened = await launchUrl(uri, mode: LaunchMode.platformDefault); } catch (_) {}
-      }
-      if (!opened && mounted) {
+      // ===== PDF والملفات الأخرى: قائمة التطبيقات (مثل واتساب) =====
+      final result = await OpenFile.open(path);
+      if (result.type != ResultType.done && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("تعذّر الفتح - جرّبي تطبيقاً آخر")));
+          SnackBar(content: Text("تعذّر الفتح: ${result.message}")));
       }
     } catch (e) {
       if (!mounted) return;
@@ -3898,60 +3895,174 @@ class _ImageViewerPage extends StatefulWidget {
   State<_ImageViewerPage> createState() => _ImageViewerPageState();
 }
 
-class _ImageViewerPageState extends State<_ImageViewerPage> {
-  bool _showAppBar = true;
+class _ImageViewerPageState extends State<_ImageViewerPage>
+    with SingleTickerProviderStateMixin {
+  bool _showUI = true;
+  late AnimationController _uiFadeCtrl;
+  late Animation<double> _uiFade;
+  final TransformationController _transformCtrl = TransformationController();
+  Timer? _hideTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _uiFadeCtrl = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 250));
+    _uiFade = CurvedAnimation(parent: _uiFadeCtrl, curve: Curves.easeInOut);
+    _uiFadeCtrl.value = 1.0;
+    _startHideTimer();
+  }
+
+  @override
+  void dispose() {
+    _uiFadeCtrl.dispose();
+    _transformCtrl.dispose();
+    _hideTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startHideTimer() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted && _showUI) {
+        setState(() => _showUI = false);
+        _uiFadeCtrl.reverse();
+      }
+    });
+  }
+
+  void _toggleUI() {
+    setState(() => _showUI = !_showUI);
+    if (_showUI) {
+      _uiFadeCtrl.forward();
+      _startHideTimer();
+    } else {
+      _uiFadeCtrl.reverse();
+    }
+  }
+
+  void _resetZoom() {
+    _transformCtrl.value = Matrix4.identity();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final name = widget.imagePath.split('/').last.split(Platform.pathSeparator).last;
+    final name = widget.imagePath.split(Platform.pathSeparator).last;
     return Scaffold(
-      extendBodyBehindAppBar: true,
       backgroundColor: Colors.black,
-      appBar: _showAppBar
-        ? AppBar(
-            backgroundColor: Colors.black54,
-            iconTheme: const IconThemeData(color: Colors.white),
-            title: Text(name,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-              overflow: TextOverflow.ellipsis),
-          )
-        : null,
-      body: GestureDetector(
-        onTap: () => setState(() => _showAppBar = !_showAppBar),
-        child: Center(
-          child: InteractiveViewer(
-            minScale: 0.3,
-            maxScale: 6.0,
-            child: Image.file(
-              File(widget.imagePath),
-              fit: BoxFit.contain,
-              errorBuilder: (_, err, __) => Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+      extendBodyBehindAppBar: true,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // ===== الصورة مع تكبير/تصغير =====
+          GestureDetector(
+            onTap: _toggleUI,
+            onDoubleTap: () {
+              if (_transformCtrl.value != Matrix4.identity()) {
+                _resetZoom();
+              } else {
+                final zoomed = Matrix4.identity()..scale(2.5);
+                _transformCtrl.value = zoomed;
+              }
+            },
+            child: InteractiveViewer(
+              transformationController: _transformCtrl,
+              minScale: 0.3,
+              maxScale: 8.0,
+              child: Center(
+                child: Hero(
+                  tag: widget.imagePath,
+                  child: Image.file(
+                    File(widget.imagePath),
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, err, __) => Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.broken_image_outlined,
+                          color: Colors.white24, size: 80),
+                        const SizedBox(height: 16),
+                        const Text("تعذّر تحميل الصورة",
+                          style: TextStyle(color: Colors.white38, fontSize: 16)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // ===== شريط علوي =====
+          FadeTransition(
+            opacity: _uiFade,
+            child: Container(
+              height: 110,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.black87, Colors.transparent],
+                ),
+              ),
+              child: SafeArea(
+                child: Row(
                   children: [
-                    const Icon(Icons.broken_image_outlined,
-                      color: Colors.white38, size: 80),
-                    const SizedBox(height: 16),
-                    const Text("تعذّر تحميل الصورة",
-                      style: TextStyle(color: Colors.white54, fontSize: 16)),
-                    const SizedBox(height: 8),
-                    Text(err.toString(),
-                      style: const TextStyle(color: Colors.white24, fontSize: 11),
-                      textAlign: TextAlign.center),
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new,
+                        color: Colors.white, size: 22),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    Expanded(
+                      child: Text(name,
+                        style: const TextStyle(color: Colors.white, fontSize: 14),
+                        overflow: TextOverflow.ellipsis),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.zoom_out_map,
+                        color: Colors.white, size: 22),
+                      tooltip: "إعادة الحجم",
+                      onPressed: _resetZoom,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.share, color: Colors.white, size: 22),
+                      tooltip: "مشاركة",
+                      onPressed: () async {
+                        await OpenFile.open(widget.imagePath);
+                      },
+                    ),
                   ],
                 ),
               ),
             ),
           ),
-        ),
+
+          // ===== شريط سفلي (تعليمات) =====
+          Positioned(
+            bottom: 0, left: 0, right: 0,
+            child: FadeTransition(
+              opacity: _uiFade,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [Colors.black54, Colors.transparent],
+                  ),
+                ),
+                child: const Text(
+                  "انقري مرتين للتكبير • اسحبي للتنقل",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white38, fontSize: 12),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-// ================================================================
-// ================ صفحة تشغيل الفيديو =============================
-// ================================================================
 class _VideoPlayerPage extends StatefulWidget {
   final String videoPath;
   final String videoName;
@@ -3961,273 +4072,354 @@ class _VideoPlayerPage extends StatefulWidget {
 }
 
 class _VideoPlayerPageState extends State<_VideoPlayerPage>
-    with TickerProviderStateMixin {
-  bool _isLoading = true;
-  bool _opened = false;
+    with SingleTickerProviderStateMixin {
+  late VideoPlayerController _controller;
+  bool _initialized = false;
+  bool _hasError = false;
+  String _errorMsg = "";
   bool _showControls = true;
-  late AnimationController _pulseController;
-  late AnimationController _fadeController;
-  late Animation<double> _pulseAnim;
-  late Animation<double> _fadeAnim;
+  bool _isFullscreen = false;
   Timer? _hideTimer;
+  late AnimationController _controlsFadeCtrl;
+  late Animation<double> _controlsFade;
 
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(
-      vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
-    _fadeController = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 600));
-    _pulseAnim = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut));
-    _fadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeIn));
-    _fadeController.forward();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _launchVideo());
+    _controlsFadeCtrl = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 300));
+    _controlsFade = CurvedAnimation(
+      parent: _controlsFadeCtrl, curve: Curves.easeInOut);
+    _controlsFadeCtrl.value = 1.0;
+    _initVideo();
+  }
+
+  Future<void> _initVideo() async {
+    try {
+      _controller = VideoPlayerController.file(File(widget.videoPath));
+      await _controller.initialize();
+      _controller.addListener(() { if (mounted) setState(() {}); });
+      if (mounted) {
+        setState(() => _initialized = true);
+        _controller.play();
+        _startHideTimer();
+      }
+    } catch (e) {
+      if (mounted) setState(() {
+        _hasError = true;
+        _errorMsg = e.toString();
+      });
+    }
   }
 
   @override
   void dispose() {
-    _pulseController.dispose();
-    _fadeController.dispose();
     _hideTimer?.cancel();
+    _controlsFadeCtrl.dispose();
+    if (_initialized) _controller.dispose();
     super.dispose();
   }
 
-  Future<void> _launchVideo() async {
-    setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 800));
-    try {
-      final uri = Uri.file(widget.videoPath);
-      bool ok = false;
-      try { ok = await launchUrl(uri, mode: LaunchMode.externalApplication); } catch (_) {}
-      if (!ok) { try { ok = await launchUrl(uri, mode: LaunchMode.platformDefault); } catch (_) {} }
-      if (mounted) setState(() { _opened = ok; _isLoading = false; });
-    } catch (e) {
-      if (mounted) setState(() { _isLoading = false; _opened = false; });
-    }
+  void _startHideTimer() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted && _showControls && _initialized && _controller.value.isPlaying) {
+        setState(() => _showControls = false);
+        _controlsFadeCtrl.reverse();
+      }
+    });
   }
 
   void _toggleControls() {
     setState(() => _showControls = !_showControls);
     if (_showControls) {
-      _hideTimer?.cancel();
-      _hideTimer = Timer(const Duration(seconds: 3),
-        () { if (mounted) setState(() => _showControls = false); });
+      _controlsFadeCtrl.forward();
+      _startHideTimer();
+    } else {
+      _controlsFadeCtrl.reverse();
     }
+  }
+
+  void _seekRelative(int seconds) {
+    final pos = _controller.value.position;
+    final dur = _controller.value.duration;
+    final newPos = Duration(
+      seconds: (pos.inSeconds + seconds).clamp(0, dur.inSeconds));
+    _controller.seekTo(newPos);
+    _startHideTimer();
+  }
+
+  String _formatDuration(Duration d) {
+    final h = d.inHours;
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return h > 0 ? '$h:$m:$s' : '$m:$s';
   }
 
   @override
   Widget build(BuildContext context) {
-    final name = widget.videoName.replaceAll(RegExp(r'\.[^.]+$'), '');
+    final name = widget.videoName.replaceAll(RegExp(r'\.[^.]+\$'), '');
     return Scaffold(
       backgroundColor: Colors.black,
-      body: FadeTransition(
-        opacity: _fadeAnim,
-        child: GestureDetector(
-          onTap: _toggleControls,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // ===== خلفية سينمائية =====
-              Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFF0a0a0a), Color(0xFF1a0010), Color(0xFF0a0a0a)],
-                  ),
-                ),
-              ),
-
-              // نقاط ضوء في الخلفية
-              ...List.generate(12, (i) {
-                final rand = Random(i * 13);
-                return Positioned(
-                  left: rand.nextDouble() * 400,
-                  top: rand.nextDouble() * 800,
-                  child: Container(
-                    width: rand.nextDouble() * 3 + 1,
-                    height: rand.nextDouble() * 3 + 1,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      shape: BoxShape.circle,
+      body: GestureDetector(
+        onTap: _toggleControls,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // ===== الفيديو =====
+            Center(
+              child: _hasError
+                ? _buildError()
+                : !_initialized
+                  ? _buildLoading()
+                  : AspectRatio(
+                      aspectRatio: _controller.value.aspectRatio,
+                      child: VideoPlayer(_controller),
                     ),
-                  ),
-                );
-              }),
+            ),
 
-              // ===== محتوى المركز =====
-              Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // أيقونة الفيلم
-                    ScaleTransition(
-                      scale: _pulseAnim,
-                      child: Container(
-                        width: 140,
-                        height: 140,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: RadialGradient(colors: [
-                            Colors.red.shade800.withOpacity(0.6),
-                            Colors.transparent,
-                          ]),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.red.shade700.withOpacity(0.4),
-                              blurRadius: 40,
-                              spreadRadius: 10,
-                            ),
-                          ],
-                        ),
-                        child: _isLoading
-                          ? const Center(
-                              child: CircularProgressIndicator(
-                                color: Colors.red, strokeWidth: 2))
-                          : Center(
-                              child: Icon(
-                                _opened
-                                  ? Icons.play_circle_fill
-                                  : Icons.error_outline,
-                                size: 80,
-                                color: _opened
-                                  ? Colors.white.withOpacity(0.9)
-                                  : Colors.red.shade300,
-                              ),
-                            ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-
-                    // اسم الفيلم
-                    Text(name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w300,
-                        letterSpacing: 1,
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
-
-                    // الحالة
-                    Text(
-                      _isLoading
-                        ? "جاري تشغيل الفيديو..."
-                        : _opened
-                          ? "يعمل في المشغّل الخارجي"
-                          : "اضغطي لإعادة المحاولة",
-                      style: TextStyle(
-                        color: _opened
-                          ? Colors.green.shade300
-                          : Colors.white38,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-
-                    // زر تشغيل
-                    GestureDetector(
-                      onTap: _launchVideo,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 40, vertical: 14),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Colors.red.shade800, Colors.red.shade600]),
-                          borderRadius: BorderRadius.circular(30),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.red.shade700.withOpacity(0.5),
-                              blurRadius: 20,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.play_arrow, color: Colors.white, size: 24),
-                            SizedBox(width: 8),
-                            Text("تشغيل",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w500)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // ===== شريط علوي (يظهر/يختفي) =====
-              AnimatedOpacity(
-                opacity: _showControls ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 300),
+            // ===== طبقة التحكم =====
+            if (_initialized && !_hasError)
+              FadeTransition(
+                opacity: _controlsFade,
                 child: Container(
-                  height: 100,
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [Colors.black54, Colors.transparent],
+                      stops: [0, 0.15, 0.75, 1],
+                      colors: [
+                        Colors.black87,
+                        Colors.transparent,
+                        Colors.transparent,
+                        Colors.black87,
+                      ],
                     ),
                   ),
-                  child: SafeArea(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.arrow_back_ios,
-                              color: Colors.white, size: 20),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                          Expanded(
-                            child: Text(name,
-                              style: const TextStyle(
-                                color: Colors.white, fontSize: 14),
-                              overflow: TextOverflow.ellipsis),
-                          ),
-                          // مؤشر التشغيل
-                          if (_opened)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.3),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: Colors.green.shade400, width: 1),
+                  child: Column(
+                    children: [
+                      // ===== شريط علوي =====
+                      SafeArea(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                          child: Row(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.arrow_back_ios_new,
+                                  color: Colors.white, size: 20),
+                                onPressed: () => Navigator.pop(context),
                               ),
-                              child: const Row(
+                              Expanded(
+                                child: Text(name,
+                                  style: const TextStyle(
+                                    color: Colors.white, fontSize: 14,
+                                    fontWeight: FontWeight.w500),
+                                  overflow: TextOverflow.ellipsis),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      const Spacer(),
+
+                      // ===== أزرار التحكم المركزية =====
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // ترجيع 10 ثواني
+                          GestureDetector(
+                            onTap: () => _seekRelative(-10),
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.black38,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.fiber_manual_record,
-                                    color: Colors.green, size: 8),
-                                  SizedBox(width: 4),
-                                  Text("يعمل",
-                                    style: TextStyle(
-                                      color: Colors.green, fontSize: 11)),
+                                  Icon(Icons.replay_10,
+                                    color: Colors.white, size: 28),
                                 ],
                               ),
                             ),
+                          ),
+                          const SizedBox(width: 24),
+                          // تشغيل / إيقاف
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _controller.value.isPlaying
+                                  ? _controller.pause()
+                                  : _controller.play();
+                              });
+                              _startHideTimer();
+                            },
+                            child: Container(
+                              width: 70, height: 70,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.15),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white38, width: 1.5),
+                              ),
+                              child: Icon(
+                                _controller.value.isPlaying
+                                  ? Icons.pause
+                                  : Icons.play_arrow,
+                                color: Colors.white, size: 38),
+                            ),
+                          ),
+                          const SizedBox(width: 24),
+                          // تقديم 10 ثواني
+                          GestureDetector(
+                            onTap: () => _seekRelative(10),
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.black38,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.forward_10,
+                                color: Colors.white, size: 28),
+                            ),
+                          ),
                         ],
                       ),
-                    ),
+
+                      const SizedBox(height: 20),
+
+                      // ===== شريط التقدم والوقت =====
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Column(
+                          children: [
+                            // شريط التقدم
+                            SliderTheme(
+                              data: SliderTheme.of(context).copyWith(
+                                thumbShape: const RoundSliderThumbShape(
+                                  enabledThumbRadius: 6),
+                                trackHeight: 3,
+                                activeTrackColor: Colors.white,
+                                inactiveTrackColor: Colors.white24,
+                                thumbColor: Colors.white,
+                                overlayColor: Colors.white12,
+                              ),
+                              child: Slider(
+                                value: _controller.value.position.inMilliseconds
+                                  .toDouble().clamp(
+                                    0,
+                                    _controller.value.duration.inMilliseconds
+                                      .toDouble()),
+                                min: 0,
+                                max: _controller.value.duration.inMilliseconds
+                                  .toDouble().clamp(1, double.infinity),
+                                onChanged: (v) {
+                                  _controller.seekTo(Duration(
+                                    milliseconds: v.toInt()));
+                                  _startHideTimer();
+                                },
+                              ),
+                            ),
+                            // الوقت
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4),
+                              child: Row(
+                                mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    _formatDuration(
+                                      _controller.value.position),
+                                    style: const TextStyle(
+                                      color: Colors.white70, fontSize: 12)),
+                                  // حالة تشغيل
+                                  if (_controller.value.isBuffering)
+                                    const SizedBox(
+                                      width: 14, height: 14,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white54)),
+                                  Text(
+                                    _formatDuration(
+                                      _controller.value.duration),
+                                    style: const TextStyle(
+                                      color: Colors.white70, fontSize: 12)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                   ),
                 ),
               ),
-            ],
-          ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildLoading() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          width: 80, height: 80,
+          decoration: BoxDecoration(
+            color: Colors.white10,
+            shape: BoxShape.circle,
+          ),
+          child: const Center(
+            child: CircularProgressIndicator(
+              color: Colors.white54, strokeWidth: 2)),
+        ),
+        const SizedBox(height: 16),
+        const Text("جاري تحميل الفيديو...",
+          style: TextStyle(color: Colors.white54, fontSize: 14)),
+      ],
+    );
+  }
+
+  Widget _buildError() {
+    return Padding(
+      padding: const EdgeInsets.all(30),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, color: Colors.red, size: 60),
+          const SizedBox(height: 16),
+          const Text("تعذّر تشغيل الفيديو",
+            style: TextStyle(color: Colors.white, fontSize: 18)),
+          const SizedBox(height: 8),
+          Text(_errorMsg,
+            style: const TextStyle(color: Colors.white38, fontSize: 11),
+            textAlign: TextAlign.center,
+            maxLines: 3),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () async {
+              setState(() { _hasError = false; _initialized = false; });
+              await _initVideo();
+            },
+            icon: const Icon(Icons.refresh),
+            label: const Text("إعادة المحاولة"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              foregroundColor: Colors.white),
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("رجوع",
+              style: TextStyle(color: Colors.white38)),
+          ),
+        ],
       ),
     );
   }
