@@ -734,6 +734,8 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                 _sidebarItem(7, "معرض الذكريات", Icons.photo_library),
                 _sidebarItem(8, "ألعابي", Icons.videogame_asset),
                 _sidebarItem(9, "الموسيقى", Icons.music_note),
+                const Divider(),
+                _alaaCornerSidebarItem(),
               ],
             ),
           ),
@@ -816,6 +818,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       case 7: return _buildMemoryGallery();
       case 8: return _buildGamesPage();
       case 9: return _buildMusicPage();
+      case 10: return _buildAlaaCornerPage();
       default: return _buildComingSoon();
     }
   }
@@ -1437,5 +1440,133 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
         SnackBar(content: Text("خطأ: \$e")),
       );
     }
+  }
+
+
+  // ================ زر ركن آلاء في القائمة ================
+  Widget _alaaCornerSidebarItem() {
+    bool isSelected = _selectedIndex == 10;
+    return ListTile(
+      selected: isSelected,
+      selectedTileColor: Colors.pink.shade50,
+      leading: Icon(Icons.auto_awesome, color: isSelected ? Colors.pinkAccent : Colors.black54),
+      title: Text("✨ ركن آلاء الخاص",
+        style: TextStyle(color: isSelected ? Colors.pinkAccent : Colors.black87,
+          fontWeight: FontWeight.bold)),
+      onTap: () => setState(() => _selectedIndex = 10),
+    );
+  }
+
+  // ================ صفحة ركن آلاء ================
+  Widget _buildAlaaCornerPage() {
+    final List<String> nameStyles = [
+      "آلاء ✨", "𝓐𝓵𝓪𝓪 🌸", "𝔸𝕝𝕒𝕒 👑", "คɭคค 🎀", "A L A A 💎", "آلاءُ الرحمن 🕊️"
+    ];
+
+    final TextEditingController customStyleController = TextEditingController();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // العنوان
+          const Center(
+            child: Column(
+              children: [
+                Icon(Icons.auto_awesome, size: 60, color: Colors.pinkAccent),
+                SizedBox(height: 10),
+                Text("ركن آلاء الخاص 👑",
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.pink)),
+                SizedBox(height: 5),
+                Text("كل ما يخصّكِ في مكان واحد",
+                  style: TextStyle(color: Colors.black54)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 30),
+
+          // معنى الاسم
+          _alaaSection("📖 معنى اسمكِ في اللغة والحضارات"),
+          Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            child: const Padding(
+              padding: EdgeInsets.all(15),
+              child: Text(
+                "آلاء هو اسم عربي أصيل يعني "النعم" التي لا تُحصى،\nذُكر في القرآن الكريم 34 مرة ليدل على عظمة عطايا الخالق.\n\nفي علم النفس، يرمز الاسم للشخصية المعطاءة والذكية والمبدعة.",
+                style: TextStyle(fontSize: 15, height: 1.6),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // الزخارف
+          _alaaSection("✍️ اسمكِ بزخارف مختلفة (اضغطي للنسخ)"),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: nameStyles.map((style) => ActionChip(
+              label: Text(style, style: const TextStyle(fontSize: 16)),
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: style));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("تم نسخ: $style ✅")),
+                );
+              },
+              backgroundColor: Colors.pink.shade50,
+            )).toList(),
+          ),
+          const SizedBox(height: 20),
+
+          // شخصيات ملهمة
+          _alaaSection("🌟 شخصيات ملهمة بهذا الاسم"),
+          Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            child: const Padding(
+              padding: EdgeInsets.all(15),
+              child: Text(
+                "• آلاء عفاش - فنانة تشكيلية\n• آلاء حسانين - أديبة وشاعرة\n• والآن آلاء... بطلة قصتها ومستقبلها المشرق 🌸",
+                style: TextStyle(fontSize: 15, height: 1.8),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // إضافة بصمة خاصة
+          _alaaSection("💝 أضيفي بصمتكِ الخاصة"),
+          TextField(
+            controller: customStyleController,
+            decoration: InputDecoration(
+              hintText: "اكتبي هنا ما تحبين إضافته لاسمكِ...",
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.add_circle, color: Colors.pink),
+                onPressed: () {
+                  if (customStyleController.text.isNotEmpty) {
+                    Clipboard.setData(ClipboardData(text: customStyleController.text));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("تم نسخ بصمتكِ ✅")),
+                    );
+                  }
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 30),
+        ],
+      ),
+    );
+  }
+
+  Widget _alaaSection(String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Text(title,
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.pink.shade800)),
+    );
   }
 }
