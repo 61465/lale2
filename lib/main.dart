@@ -1494,7 +1494,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
             child: const Padding(
               padding: EdgeInsets.all(15),
               child: Text(
-                "آلاء هو اسم عربي أصيل يعني "النعم" التي لا تُحصى،\nذُكر في القرآن الكريم 34 مرة ليدل على عظمة عطايا الخالق.\n\nفي علم النفس، يرمز الاسم للشخصية المعطاءة والذكية والمبدعة.",
+                'آلاء هو اسم عربي أصيل يعني «النعم» التي لا تُحصى،\nذُكر في القرآن الكريم 34 مرة ليدل على عظمة عطايا الخالق.\n\nفي علم النفس، يرمز الاسم للشخصية المعطاءة والذكية والمبدعة.',
                 style: TextStyle(fontSize: 15, height: 1.6),
               ),
             ),
@@ -1527,7 +1527,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
             child: const Padding(
               padding: EdgeInsets.all(15),
               child: Text(
-                "• آلاء عفاش - فنانة تشكيلية\n• آلاء حسانين - أديبة وشاعرة\n• والآن آلاء... بطلة قصتها ومستقبلها المشرق 🌸",
+                '• آلاء عفاش - فنانة تشكيلية\n• آلاء حسانين - أديبة وشاعرة\n• والآن آلاء... بطلة قصتها ومستقبلها المشرق 🌸',
                 style: TextStyle(fontSize: 15, height: 1.8),
               ),
             ),
