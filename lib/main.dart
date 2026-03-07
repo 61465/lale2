@@ -829,36 +829,96 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
   }
 
   Future<void> _viewFile(String path) async {
+    if (!mounted) return;
     try {
-      File file = File(path);
+      final file = File(path);
       if (!await file.exists()) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("⚠️ الملف غير موجود")));
+          const SnackBar(content: Text("⚠️ الملف غير موجود على الجهاز")));
         return;
       }
       final ext = path.split('.').last.toLowerCase();
-      // Images - show in-app viewer
-      if (['jpg','jpeg','png','gif','webp','bmp'].contains(ext)) {
+
+      // ===== الصور: نفتحها داخل التطبيق =====
+      if (['jpg','jpeg','png','gif','webp','bmp','heic','heif'].contains(ext)) {
         if (!mounted) return;
-        Navigator.push(context, MaterialPageRoute(
+        await Navigator.push(context, MaterialPageRoute(
           builder: (_) => _ImageViewerPage(imagePath: path),
         ));
         return;
       }
-      // PDF & other - launch external
-      final Uri uri = Uri.file(path);
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
+
+      // ===== PDF والفيديو: نحاول فتحها بتطبيق خارجي =====
+      // طريقة 1: uri مباشر
+      Uri uri;
+      if (Platform.isAndroid) {
+        // على أندرويد نحتاج content:// URI وليس file://
+        // نستخدم file:// ونترك النظام يتعامل معه
+        uri = Uri.parse('file://${Uri.encodeComponent(path).replaceAll('%2F', '/')}');
       } else {
+        uri = Uri.file(path);
+      }
+
+      bool launched = false;
+      try {
+        launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } catch (_) {}
+
+      if (!launched) {
+        // طريقة 2: platformDefault
+        try {
+          launched = await launchUrl(uri, mode: LaunchMode.platformDefault);
+        } catch (_) {}
+      }
+
+      if (!launched) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("⚠️ لا يوجد تطبيق لفتح هذا الملف")));
+        // طريقة 3: أظهر Dialog فيه مسار الملف
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text("📂 ${ext.toUpperCase()}"),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text("لا يمكن فتح الملف تلقائياً.
+انسخي المسار وافتحيه يدوياً:",
+                  style: const TextStyle(fontSize: 14)),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: SelectableText(path,
+                    style: const TextStyle(fontSize: 11)),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: path));
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("✅ تم نسخ المسار")));
+                },
+                child: const Text("نسخ المسار"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text("إغلاق"),
+              ),
+            ],
+          ),
+        );
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("خطأ: $e")));
+        SnackBar(content: Text("خطأ في فتح الملف: $e")));
     }
   }
 
@@ -2813,80 +2873,141 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
           Expanded(
             child: TabBarView(
               children: [
-                // ======= تاب الجدول (يضيفه المستخدم) =======
-                Column(
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(colors: [Colors.blue.shade700, Colors.blue.shade400]),
+                // ======= تاب الجدول - أيام ثابتة + مواد قابلة للتعديل =======
+                SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Colors.blue.shade800, Colors.blue.shade500]),
+                        ),
+                        child: const Text("📅 جدولكِ الدراسي — اضغطي على خانة لتعديلها",
+                          style: TextStyle(color: Colors.white, fontSize: 15,
+                            fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center),
                       ),
-                      child: const Text("📅 جدولكِ الدراسي يا آلاء",
-                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                        textAlign: TextAlign.center),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: ElevatedButton.icon(
-                        onPressed: _addNursingScheduleItem,
-                        icon: const Icon(Icons.add_circle),
-                        label: const Text("إضافة مادة للجدول"),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue.shade700,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(double.infinity, 48),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: Table(
+                            border: TableBorder.all(
+                              color: Colors.blue.shade100,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            columnWidths: const {
+                              0: FlexColumnWidth(1.3),
+                              1: FlexColumnWidth(2.2),
+                              2: FlexColumnWidth(1.3),
+                            },
+                            children: [
+                              // رأس الجدول
+                              TableRow(
+                                decoration: BoxDecoration(color: Colors.blue.shade700),
+                                children: const [
+                                  Padding(padding: EdgeInsets.all(10),
+                                    child: Text("اليوم", textAlign: TextAlign.center,
+                                      style: TextStyle(color: Colors.white,
+                                        fontWeight: FontWeight.bold, fontSize: 13))),
+                                  Padding(padding: EdgeInsets.all(10),
+                                    child: Text("المادة", textAlign: TextAlign.center,
+                                      style: TextStyle(color: Colors.white,
+                                        fontWeight: FontWeight.bold, fontSize: 13))),
+                                  Padding(padding: EdgeInsets.all(10),
+                                    child: Text("الوقت", textAlign: TextAlign.center,
+                                      style: TextStyle(color: Colors.white,
+                                        fontWeight: FontWeight.bold, fontSize: 13))),
+                                ],
+                              ),
+                              // صفوف الأيام
+                              ...List.generate(6, (idx) {
+                                final days = ["السبت","الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس"];
+                                final day = days[idx];
+                                final entry = _nursingSchedule.length > idx
+                                  ? _nursingSchedule[idx] : <String,String>{};
+                                final subject = entry["subject"] ?? "";
+                                final time = entry["time"] ?? "";
+                                final isEven = idx.isEven;
+                                return TableRow(
+                                  decoration: BoxDecoration(
+                                    color: isEven ? Colors.white : Colors.blue.shade50),
+                                  children: [
+                                    // اليوم
+                                    Padding(
+                                      padding: const EdgeInsets.all(10),
+                                      child: Text(day,
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.blue.shade800,
+                                          fontSize: 13)),
+                                    ),
+                                    // المادة - قابلة للنقر
+                                    GestureDetector(
+                                      onTap: () => _editNursingCell(idx, "subject"),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(10),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                subject.isEmpty ? "اضغطي للإضافة" : subject,
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  color: subject.isEmpty
+                                                    ? Colors.blue.shade300
+                                                    : Colors.black87,
+                                                  fontStyle: subject.isEmpty
+                                                    ? FontStyle.italic : FontStyle.normal,
+                                                ),
+                                              ),
+                                            ),
+                                            Icon(Icons.edit,
+                                              size: 12,
+                                              color: Colors.blue.shade200),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    // الوقت - قابل للنقر
+                                    GestureDetector(
+                                      onTap: () => _editNursingCell(idx, "time"),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(10),
+                                        child: Text(
+                                          time.isEmpty ? "—" : time,
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: time.isEmpty
+                                              ? Colors.blue.shade200 : Colors.black54,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              }),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    Expanded(
-                      child: _nursingSchedule.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.school, size: 70, color: Colors.blue.shade200),
-                                const SizedBox(height: 12),
-                                const Text("أضيفي موادكِ الدراسية 📚",
-                                  style: TextStyle(color: Colors.grey, fontSize: 16)),
-                              ],
-                            ),
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            itemCount: _nursingSchedule.length,
-                            itemBuilder: (ctx, i) => Dismissible(
-                              key: Key('sched_$i'),
-                              direction: DismissDirection.endToStart,
-                              background: Container(
-                                alignment: Alignment.centerRight,
-                                padding: const EdgeInsets.only(right: 20),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.shade400,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(Icons.delete_sweep, color: Colors.white),
-                              ),
-                              onDismissed: (_) => setState(() => _nursingSchedule.removeAt(i)),
-                              child: Card(
-                                margin: const EdgeInsets.only(bottom: 8),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                child: ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor: Colors.blue.shade100,
-                                    child: Text("${i+1}", style: TextStyle(color: Colors.blue.shade700, fontWeight: FontWeight.bold)),
-                                  ),
-                                  title: Text(_nursingSchedule[i]["subject"] ?? "",
-                                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  subtitle: Text("📅 ${_nursingSchedule[i]['day'] ?? ''}  •  🕐 ${_nursingSchedule[i]['time'] ?? ''}"),
-                                  trailing: Icon(Icons.drag_handle, color: Colors.grey.shade400),
-                                ),
-                              ),
-                            ),
-                          ),
-                    ),
-                  ],
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: TextButton.icon(
+                          onPressed: () => setState(() => _nursingSchedule.clear()),
+                          icon: const Icon(Icons.refresh, color: Colors.red, size: 18),
+                          label: const Text("مسح الجدول",
+                            style: TextStyle(color: Colors.red)),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
 
                 // ======= تاب المذكرة =======
@@ -3815,44 +3936,56 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
 // ================================================================
 // ================ صفحة عرض الصور ================================
 // ================================================================
-class _ImageViewerPage extends StatelessWidget {
+class _ImageViewerPage extends StatefulWidget {
   final String imagePath;
   const _ImageViewerPage({required this.imagePath});
+  @override
+  State<_ImageViewerPage> createState() => _ImageViewerPageState();
+}
+
+class _ImageViewerPageState extends State<_ImageViewerPage> {
+  bool _showAppBar = true;
 
   @override
   Widget build(BuildContext context) {
+    final name = widget.imagePath.split('/').last.split(Platform.pathSeparator).last;
     return Scaffold(
+      extendBodyBehindAppBar: true,
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(imagePath.split('/').last,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
-          overflow: TextOverflow.ellipsis),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share, color: Colors.white),
-            onPressed: () async {
-              final uri = Uri.file(imagePath);
-              if (await canLaunchUrl(uri)) launchUrl(uri);
-            },
-          ),
-        ],
-      ),
-      body: Center(
-        child: InteractiveViewer(
-          minScale: 0.5,
-          maxScale: 4.0,
-          child: Image.file(
-            File(imagePath),
-            fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) => const Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.broken_image, color: Colors.white54, size: 60),
-                SizedBox(height: 10),
-                Text("لا يمكن عرض الصورة", style: TextStyle(color: Colors.white54)),
-              ],
+      appBar: _showAppBar
+        ? AppBar(
+            backgroundColor: Colors.black54,
+            iconTheme: const IconThemeData(color: Colors.white),
+            title: Text(name,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              overflow: TextOverflow.ellipsis),
+          )
+        : null,
+      body: GestureDetector(
+        onTap: () => setState(() => _showAppBar = !_showAppBar),
+        child: Center(
+          child: InteractiveViewer(
+            minScale: 0.3,
+            maxScale: 6.0,
+            child: Image.file(
+              File(widget.imagePath),
+              fit: BoxFit.contain,
+              errorBuilder: (_, err, __) => Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.broken_image_outlined,
+                      color: Colors.white38, size: 80),
+                    const SizedBox(height: 16),
+                    const Text("تعذّر تحميل الصورة",
+                      style: TextStyle(color: Colors.white54, fontSize: 16)),
+                    const SizedBox(height: 8),
+                    Text(err.toString(),
+                      style: const TextStyle(color: Colors.white24, fontSize: 11),
+                      textAlign: TextAlign.center),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -3875,18 +4008,40 @@ class _VideoPlayerPage extends StatefulWidget {
 
 class _VideoPlayerPageState extends State<_VideoPlayerPage> {
   bool _launched = false;
+  String _status = "جاري فتح الفيديو...";
 
   @override
   void initState() {
     super.initState();
-    _openVideo();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openVideo());
   }
 
   Future<void> _openVideo() async {
-    final uri = Uri.file(widget.videoPath);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-      setState(() => _launched = true);
+    setState(() { _launched = false; _status = "جاري فتح الفيديو..."; });
+    try {
+      Uri uri;
+      if (Platform.isAndroid) {
+        uri = Uri.parse(
+          'file://${Uri.encodeComponent(widget.videoPath).replaceAll('%2F', '/')}');
+      } else {
+        uri = Uri.file(widget.videoPath);
+      }
+
+      bool ok = false;
+      try {
+        ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } catch (_) {}
+      if (!ok) {
+        try { ok = await launchUrl(uri, mode: LaunchMode.platformDefault); } catch (_) {}
+      }
+      if (mounted) {
+        setState(() {
+          _launched = ok;
+          _status = ok ? "يتم التشغيل في المشغّل الخارجي 🎬" : "تعذّر فتح الفيديو تلقائياً";
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _status = "خطأ: $e");
     }
   }
 
@@ -3898,38 +4053,79 @@ class _VideoPlayerPageState extends State<_VideoPlayerPage> {
         backgroundColor: Colors.black,
         iconTheme: const IconThemeData(color: Colors.white),
         title: Text(widget.videoName,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
+          style: const TextStyle(color: Colors.white, fontSize: 13),
           overflow: TextOverflow.ellipsis),
       ),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text("🎬", style: TextStyle(fontSize: 80)),
-            const SizedBox(height: 20),
-            Text(_launched ? "جارٍ التشغيل..." : "جاري فتح الفيديو...",
-              style: const TextStyle(color: Colors.white, fontSize: 18)),
-            const SizedBox(height: 8),
-            const Text("يُفتح في مشغّل الفيديو الخارجي",
-              style: TextStyle(color: Colors.white38, fontSize: 13)),
-            const SizedBox(height: 30),
-            ElevatedButton.icon(
-              onPressed: _openVideo,
-              icon: const Icon(Icons.play_arrow),
-              label: const Text("إعادة التشغيل"),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade700,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(30),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(30),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade900.withOpacity(0.3),
+                  shape: BoxShape.circle,
+                ),
+                child: const Text("🎬", style: TextStyle(fontSize: 70)),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("رجوع", style: TextStyle(color: Colors.white54)),
-            ),
-          ],
+              const SizedBox(height: 24),
+              Text(_status,
+                style: TextStyle(
+                  color: _launched ? Colors.green.shade300 : Colors.white70,
+                  fontSize: 16),
+                textAlign: TextAlign.center),
+              const SizedBox(height: 8),
+              Text(widget.videoName,
+                style: const TextStyle(color: Colors.white38, fontSize: 12),
+                textAlign: TextAlign.center,
+                maxLines: 2, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 32),
+              ElevatedButton.icon(
+                onPressed: _openVideo,
+                icon: const Icon(Icons.play_circle_filled),
+                label: const Text("تشغيل"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade700,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(200, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(25)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (!_launched) ...[
+                const Divider(color: Colors.white12, height: 30),
+                const Text("انسخي المسار وافتحيه يدوياً:",
+                  style: TextStyle(color: Colors.white38, fontSize: 12)),
+                const SizedBox(height: 6),
+                GestureDetector(
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: widget.videoPath));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("✅ تم نسخ المسار")));
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white10,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(widget.videoPath,
+                      style: const TextStyle(color: Colors.white38, fontSize: 10),
+                      maxLines: 3, overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("رجوع للسينما",
+                  style: TextStyle(color: Colors.white38)),
+              ),
+            ],
+          ),
         ),
       ),
     );
