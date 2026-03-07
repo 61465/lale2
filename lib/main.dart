@@ -124,6 +124,11 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
   List<String> _nursingNotes = [];
   List<String> _nursingFiles = [];
   final TextEditingController _nursingNoteController = TextEditingController();
+  List<Map<String, String>> _alaaPersonalities = [
+    {"name": "آلاء عفاش", "desc": "فنانة تشكيلية رائعة"},
+    {"name": "آلاء حسانين", "desc": "أديبة وشاعرة موهوبة"},
+    {"name": "آلاء المستقبل 🌸", "desc": "ممرضة ستغيّر حياة الكثيرين"},
+  ];
   String? lastAnalysisResult;
   
   // متغيرات نجوم التأمل
@@ -1777,7 +1782,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("خطأ: \$e")),
+        SnackBar(content: Text("خطأ: $e")),
       );
     }
   }
@@ -1867,17 +1872,38 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
           ),
           const SizedBox(height: 20),
 
-          // شخصيات ملهمة
+          // شخصيات ملهمة - قابلة للتعديل
           _alaaSection("🌟 شخصيات ملهمة بهذا الاسم"),
-          Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-            child: const Padding(
-              padding: EdgeInsets.all(15),
-              child: Text(
-                '• آلاء عفاش - فنانة تشكيلية\n• آلاء حسانين - أديبة وشاعرة\n• والآن آلاء... بطلة قصتها ومستقبلها المشرق 🌸',
-                style: TextStyle(fontSize: 15, height: 1.8),
+          ..._alaaPersonalities.asMap().entries.map((e) => Dismissible(
+            key: Key('personality_${e.key}'),
+            direction: DismissDirection.endToStart,
+            background: Container(
+              color: Colors.red.shade300,
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: 16),
+              child: const Icon(Icons.delete, color: Colors.white),
+            ),
+            onDismissed: (_) => setState(() => _alaaPersonalities.removeAt(e.key)),
+            child: Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: ListTile(
+                leading: const Text("⭐", style: TextStyle(fontSize: 22)),
+                title: Text(e.value["name"] ?? ""),
+                subtitle: Text(e.value["desc"] ?? ""),
               ),
+            ),
+          )),
+          const SizedBox(height: 8),
+          ElevatedButton.icon(
+            onPressed: _addAlaaPersonality,
+            icon: const Icon(Icons.add),
+            label: const Text("إضافة شخصية ملهمة"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.pink.shade100,
+              foregroundColor: Colors.pink.shade800,
+              minimumSize: const Size(double.infinity, 44),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
           ),
           const SizedBox(height: 20),
@@ -1910,6 +1936,54 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     );
   }
 
+  void _addAlaaPersonality() {
+    if (!mounted) return;
+    final nameCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("⭐ إضافة شخصية ملهمة"),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(
+            controller: nameCtrl,
+            decoration: InputDecoration(
+              hintText: "اسم الشخصية",
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              prefixIcon: const Icon(Icons.person),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: descCtrl,
+            decoration: InputDecoration(
+              hintText: "وصف مختصر (لماذا تلهمكِ؟)",
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              prefixIcon: const Icon(Icons.star),
+            ),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("إلغاء")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.pink),
+            onPressed: () {
+              if (nameCtrl.text.isNotEmpty) {
+                setState(() => _alaaPersonalities.add({
+                  "name": nameCtrl.text,
+                  "desc": descCtrl.text,
+                }));
+                Navigator.pop(ctx);
+              }
+            },
+            child: const Text("إضافة ✨", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _alaaSection(String title) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -1922,17 +1996,17 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
   // ================ 1. صفحة التمريض ================================
   // ================================================================
   Widget _buildNursingPage() {
-    final subjects = ["تشريح", "فسيولوجيا", "أمراض باطنية", "تمريض جراحي", "صيدلة", "أخلاقيات مهنية"];
-    final days = ["السبت", "الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس"];
-
     return DefaultTabController(
       length: 2,
       child: Column(
         children: [
           Container(
-            color: Colors.blue.shade700,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [Colors.blue.shade800, Colors.blue.shade500]),
+            ),
             child: const TabBar(
               indicatorColor: Colors.white,
+              indicatorWeight: 3,
               labelColor: Colors.white,
               unselectedLabelColor: Colors.white60,
               tabs: [
@@ -1944,62 +2018,80 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
           Expanded(
             child: TabBarView(
               children: [
-                // ======= تاب الجدول =======
-                SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(colors: [Colors.blue.shade700, Colors.blue.shade400]),
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.school, color: Colors.white),
-                            SizedBox(width: 8),
-                            Text("جدول آلاء الدراسي 📚",
-                              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                          ],
-                        ),
+                // ======= تاب الجدول (يضيفه المستخدم) =======
+                Column(
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(colors: [Colors.blue.shade700, Colors.blue.shade400]),
                       ),
-                      const SizedBox(height: 16),
-                      // الجدول
-                      Table(
-                        border: TableBorder.all(color: Colors.blue.shade200, borderRadius: BorderRadius.circular(8)),
-                        columnWidths: const {0: FlexColumnWidth(1.2), 1: FlexColumnWidth(2)},
-                        children: [
-                          TableRow(
-                            decoration: BoxDecoration(color: Colors.blue.shade100),
-                            children: const [
-                              Padding(padding: EdgeInsets.all(8), child: Text("اليوم", style: TextStyle(fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
-                              Padding(padding: EdgeInsets.all(8), child: Text("المادة", style: TextStyle(fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
-                            ],
-                          ),
-                          ...List.generate(days.length, (i) => TableRow(
-                            decoration: BoxDecoration(color: i.isEven ? Colors.white : Colors.blue.shade50),
-                            children: [
-                              Padding(padding: const EdgeInsets.all(8),
-                                child: Text(days[i], textAlign: TextAlign.center,
-                                  style: const TextStyle(fontWeight: FontWeight.w500))),
-                              Padding(padding: const EdgeInsets.all(8),
-                                child: Text(i < subjects.length ? subjects[i] : "—",
-                                  textAlign: TextAlign.center)),
-                            ],
-                          )),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton.icon(
+                      child: const Text("📅 جدولكِ الدراسي يا آلاء",
+                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: ElevatedButton.icon(
                         onPressed: _addNursingScheduleItem,
-                        icon: const Icon(Icons.add),
-                        label: const Text("تعديل الجدول"),
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade700, foregroundColor: Colors.white),
+                        icon: const Icon(Icons.add_circle),
+                        label: const Text("إضافة مادة للجدول"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.shade700,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(double.infinity, 48),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
                       ),
-                    ],
-                  ),
+                    ),
+                    Expanded(
+                      child: _nursingSchedule.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.school, size: 70, color: Colors.blue.shade200),
+                                const SizedBox(height: 12),
+                                const Text("أضيفي موادكِ الدراسية 📚",
+                                  style: TextStyle(color: Colors.grey, fontSize: 16)),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            itemCount: _nursingSchedule.length,
+                            itemBuilder: (ctx, i) => Dismissible(
+                              key: Key('sched_$i'),
+                              direction: DismissDirection.endToStart,
+                              background: Container(
+                                alignment: Alignment.centerRight,
+                                padding: const EdgeInsets.only(right: 20),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade400,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(Icons.delete_sweep, color: Colors.white),
+                              ),
+                              onDismissed: (_) => setState(() => _nursingSchedule.removeAt(i)),
+                              child: Card(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                child: ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: Colors.blue.shade100,
+                                    child: Text("${i+1}", style: TextStyle(color: Colors.blue.shade700, fontWeight: FontWeight.bold)),
+                                  ),
+                                  title: Text(_nursingSchedule[i]["subject"] ?? "",
+                                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  subtitle: Text("📅 ${_nursingSchedule[i]['day'] ?? ''}  •  🕐 ${_nursingSchedule[i]['time'] ?? ''}"),
+                                  trailing: Icon(Icons.drag_handle, color: Colors.grey.shade400),
+                                ),
+                              ),
+                            ),
+                          ),
+                    ),
+                  ],
                 ),
 
                 // ======= تاب المذكرة =======
@@ -2063,7 +2155,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                                 child: Text("📎 الملفات المرفقة", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
                               ),
                               ..._nursingFiles.asMap().entries.map((e) => Dismissible(
-                                key: Key('nfile_\${e.key}'),
+                                key: Key('nfile_${e.key}'),
                                 direction: DismissDirection.endToStart,
                                 background: Container(color: Colors.red, alignment: Alignment.centerRight,
                                   padding: const EdgeInsets.only(right: 16),
@@ -2087,7 +2179,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                                 child: Text("📝 ملاحظاتي", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
                               ),
                               ..._nursingNotes.asMap().entries.map((e) => Dismissible(
-                                key: Key('nnote_\${e.key}'),
+                                key: Key('nnote_${e.key}'),
                                 direction: DismissDirection.endToStart,
                                 background: Container(color: Colors.red, alignment: Alignment.centerRight,
                                   padding: const EdgeInsets.only(right: 16),
@@ -2128,23 +2220,55 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     if (!mounted) return;
     final dayCtrl = TextEditingController();
     final subjectCtrl = TextEditingController();
+    final timeCtrl = TextEditingController();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("إضافة للجدول"),
+        title: const Text("📅 إضافة مادة للجدول"),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(controller: dayCtrl, decoration: const InputDecoration(hintText: "اليوم")),
-          const SizedBox(height: 8),
-          TextField(controller: subjectCtrl, decoration: const InputDecoration(hintText: "المادة")),
+          TextField(
+            controller: subjectCtrl,
+            decoration: InputDecoration(
+              hintText: "اسم المادة (مثل: تشريح)",
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              prefixIcon: const Icon(Icons.book, color: Colors.blue),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: dayCtrl,
+            decoration: InputDecoration(
+              hintText: "اليوم (مثل: الأحد)",
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              prefixIcon: const Icon(Icons.calendar_today, color: Colors.blue),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: timeCtrl,
+            decoration: InputDecoration(
+              hintText: "الوقت (مثل: 8:00 ص)",
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              prefixIcon: const Icon(Icons.access_time, color: Colors.blue),
+            ),
+          ),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("إلغاء")),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade700),
             onPressed: () {
-              setState(() => _nursingSchedule.add({"day": dayCtrl.text, "subject": subjectCtrl.text}));
-              Navigator.pop(ctx);
+              if (subjectCtrl.text.isNotEmpty) {
+                setState(() => _nursingSchedule.add({
+                  "subject": subjectCtrl.text,
+                  "day": dayCtrl.text,
+                  "time": timeCtrl.text,
+                }));
+                Navigator.pop(ctx);
+              }
             },
-            child: const Text("إضافة"),
+            child: const Text("إضافة ✅", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -2217,7 +2341,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                       onPressed: () => setState(() =>
                         _currentDailyMessageIndex = (_currentDailyMessageIndex - 1 + _husbandMessages.length) % _husbandMessages.length),
                     ),
-                    Text("\${_currentDailyMessageIndex + 1}/\${_husbandMessages.length}",
+                    Text("${_currentDailyMessageIndex + 1}/${_husbandMessages.length}",
                       style: const TextStyle(color: Colors.white60)),
                     IconButton(
                       icon: const Icon(Icons.arrow_forward_ios, color: Colors.white60),
@@ -2290,7 +2414,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                 color: _isBreakTime ? Colors.green : Colors.purple),
             ),
             const SizedBox(height: 10),
-            Text("جلسات مكتملة: \$_pomodoroCount 🌸",
+            Text("جلسات مكتملة: $_pomodoroCount 🌸",
               style: const TextStyle(color: Colors.grey)),
             const SizedBox(height: 30),
             // دائرة التايمر
@@ -2315,7 +2439,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        "\${minutes.toString().padLeft(2, '0')}:\${seconds.toString().padLeft(2, '0')}",
+                        "${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}",
                         style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
                       ),
                       Text(_pomodoroRunning ? "جارٍ..." : "متوقف",
@@ -2446,7 +2570,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
               ),
               child: Column(
                 children: [
-                  Text("\$daysPassed",
+                  Text("$daysPassed",
                     style: const TextStyle(fontSize: 72, fontWeight: FontWeight.bold, color: Colors.white)),
                   const Text("يوم مضى 💕",
                     style: TextStyle(color: Colors.white, fontSize: 20)),
@@ -2455,7 +2579,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
             ),
             const SizedBox(height: 20),
             Text(
-              "منذ \${_specialDate!.day}/\${_specialDate!.month}/\${_specialDate!.year}",
+              "منذ ${_specialDate!.day}/${_specialDate!.month}/${_specialDate!.year}",
               style: const TextStyle(color: Colors.grey),
             ),
           ] else
@@ -2556,7 +2680,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                     final openDate = DateTime.tryParse(msg["openDate"] ?? "");
                     final canOpen = openDate == null || DateTime.now().isAfter(openDate);
                     return Dismissible(
-                      key: Key('lmsg_\$i'),
+                      key: Key('lmsg_$i'),
                       direction: DismissDirection.endToStart,
                       background: Container(
                         color: Colors.red,
@@ -2574,7 +2698,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                           ),
                           title: Text(msg["title"] ?? "رسالة"),
                           subtitle: Text(openDate != null
-                            ? "تُفتح في: \${openDate.day}/\${openDate.month}/\${openDate.year}"
+                            ? "تُفتح في: ${openDate.day}/${openDate.month}/${openDate.year}"
                             : "متاحة الآن"),
                           trailing: canOpen
                             ? IconButton(
@@ -2625,7 +2749,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                 TextButton.icon(
                   icon: const Icon(Icons.calendar_today),
                   label: Text(selectedDate != null
-                    ? "تُفتح: \${selectedDate!.day}/\${selectedDate!.month}/\${selectedDate!.year}"
+                    ? "تُفتح: ${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}"
                     : "اختاري تاريخ الفتح (اختياري)"),
                   onPressed: () async {
                     DateTime? picked = await showDatePicker(
@@ -2668,7 +2792,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text("💌 \${msg['title']}"),
+        title: Text("💌 ${msg['title']}"),
         content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2676,7 +2800,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
               Text(msg["content"] ?? "", style: const TextStyle(fontSize: 16, height: 1.6)),
               const SizedBox(height: 15),
               Text(
-                "كُتبت في: \${DateTime.tryParse(msg['createdAt'] ?? '')?.day ?? '—'}/\${DateTime.tryParse(msg['createdAt'] ?? '')?.month ?? '—'}/\${DateTime.tryParse(msg['createdAt'] ?? '')?.year ?? '—'}",
+                "كُتبت في: ${DateTime.tryParse(msg['createdAt'] ?? '')?.day ?? '—'}/${DateTime.tryParse(msg['createdAt'] ?? '')?.month ?? '—'}/${DateTime.tryParse(msg['createdAt'] ?? '')?.year ?? '—'}",
                 style: const TextStyle(color: Colors.grey, fontSize: 12),
               ),
             ],
