@@ -60,6 +60,27 @@ class StarModel {
   StarModel(this.x, this.y, {this.floatOffset = 0});
 }
 
+class RecipeModel {
+  String name;
+  String category;   // حلويات / رئيسية / مشروبات / سلطات
+  String ingredients;
+  String steps;
+  String emoji;
+  bool isFavorite;
+  RecipeModel(this.name, this.category, this.ingredients, this.steps,
+    {this.emoji = "🍽️", this.isFavorite = false});
+
+  Map<String, String> toMap() => {
+    "name": name, "category": category, "ingredients": ingredients,
+    "steps": steps, "emoji": emoji, "fav": isFavorite ? "1" : "0",
+  };
+  static RecipeModel fromMap(Map<String, String> m) => RecipeModel(
+    m["name"] ?? "", m["category"] ?? "", m["ingredients"] ?? "",
+    m["steps"] ?? "", emoji: m["emoji"] ?? "🍽️",
+    isFavorite: m["fav"] == "1",
+  );
+}
+
 class MemoryImage {
   String path;
   MemoryImage(this.path);
@@ -328,7 +349,10 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
   Timer? _clockTimer;
   DateTime _now = DateTime.now();
   bool _isPlaying = false;
-  List<String> _cinemaVideos = [];          // صفحة السينما
+  List<String> _cinemaVideos = [];
+  List<Map<String,String>> _coupleVideos = []; // روابط فيديوهات قائمة مع زوجي
+  List<RecipeModel> _recipes = [];
+  String _recipeCategory = "الكل";          // صفحة السينما
   Timer? _timeOfDayTimer;                   // تحديث وقت اليوم
   String _timeOfDay = "morning";            // morning/afternoon/sunset/night
 
@@ -491,6 +515,14 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       // السينما
       final cinema = prefs.getStringList('cinemaVideos');
       if (cinema != null) _cinemaVideos = cinema;
+      final cvTitles = prefs.getStringList('coupleVideoTitles') ?? [];
+      final cvUrls   = prefs.getStringList('coupleVideoUrls')   ?? [];
+      if (cvTitles.isNotEmpty) {
+        _coupleVideos = List.generate(cvTitles.length, (i) => {
+          'title': cvTitles[i],
+          'url':   i < cvUrls.length ? cvUrls[i] : '',
+        });
+      }
       // التمريض
       final nFiles = prefs.getStringList('nursingFiles');
       if (nFiles != null) _nursingFiles = nFiles;
@@ -536,6 +568,23 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       }
       final alaaQ = prefs.getStringList('alaaQuotes');
       if (alaaQ != null) _alaaQuotes = alaaQ;
+      // الوصفات
+      final rNames  = prefs.getStringList('recipeNames')  ?? [];
+      final rCats   = prefs.getStringList('recipeCats')   ?? [];
+      final rIngr   = prefs.getStringList('recipeIngr')   ?? [];
+      final rSteps  = prefs.getStringList('recipeSteps')  ?? [];
+      final rEmoji  = prefs.getStringList('recipeEmoji')  ?? [];
+      final rFav    = prefs.getStringList('recipeFav')    ?? [];
+      if (rNames.isNotEmpty) {
+        _recipes = List.generate(rNames.length, (i) => RecipeModel(
+          rNames[i],
+          i < rCats.length   ? rCats[i]   : "",
+          i < rIngr.length   ? rIngr[i]   : "",
+          i < rSteps.length  ? rSteps[i]  : "",
+          emoji:       i < rEmoji.length  ? rEmoji[i]  : "🍽️",
+          isFavorite:  i < rFav.length    ? rFav[i] == "1" : false,
+        ));
+      }
       // عداد الأيام
       final dateStr = prefs.getString('specialDate');
       if (dateStr != null) _specialDate = DateTime.tryParse(dateStr);
@@ -564,6 +613,8 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     await prefs.setStringList('gamePaths',  games.map((g) => g.path).toList());
     await prefs.setStringList('memories',   memories.map((m) => m.path).toList());
     await prefs.setStringList('cinemaVideos', _cinemaVideos);
+    await prefs.setStringList('coupleVideoTitles',  _coupleVideos.map((v) => v['title']  ?? '').toList());
+    await prefs.setStringList('coupleVideoUrls',    _coupleVideos.map((v) => v['url']    ?? '').toList());
     await prefs.setStringList('nursingFiles', _nursingFiles);
     await prefs.setStringList('nursingNotes', _nursingNotes);
     await prefs.setStringList('schedSubjects', _nursingSchedule.map((e) => e['subject'] ?? '').toList());
@@ -579,6 +630,13 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     await prefs.setStringList('alaaQuotes', _alaaQuotes);
     if (_specialDate != null) await prefs.setString('specialDate', _specialDate!.toIso8601String());
     await prefs.setString('specialDateLabel', _specialDateLabel);
+    // الوصفات
+    await prefs.setStringList('recipeNames',  _recipes.map((r) => r.name).toList());
+    await prefs.setStringList('recipeCats',   _recipes.map((r) => r.category).toList());
+    await prefs.setStringList('recipeIngr',   _recipes.map((r) => r.ingredients).toList());
+    await prefs.setStringList('recipeSteps',  _recipes.map((r) => r.steps).toList());
+    await prefs.setStringList('recipeEmoji',  _recipes.map((r) => r.emoji).toList());
+    await prefs.setStringList('recipeFav',    _recipes.map((r) => r.isFavorite ? "1" : "0").toList());
     await _saveTasks();
   }
 
@@ -754,6 +812,47 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
         floatOffset: Random().nextDouble() * 2 * pi,
       ));
     });
+  }
+
+  // كتابة اسم آلاء بالنجوم على السماء
+  void _writeNameWithStars() {
+    // نقاط تشكّل كلمة "آلاء" بشكل تقريبي
+    // كل حرف له نقاط نسبية ، نضعها موزعة على الشاشة
+    const double startX = 30;
+    const double startY = 120;
+    const double scale = 22.0;
+
+    // نقاط رسم الحروف (مبسّطة) - x,y نسبية
+    final letterPoints = <List<double>>[
+      // آ
+      [0,0],[0,1],[0,2],[0,3],[0.2,0],
+      // ل
+      [0.8,0],[0.8,1],[0.8,2],[1.0,2],[1.2,2],
+      // ا
+      [1.6,0],[1.6,1],[1.6,2],[1.6,3],
+      // ء
+      [2.0,1.5],[2.2,1],[2.1,0.8],
+    ];
+
+    setState(() {
+      stars.clear();
+      final rand = Random();
+      for (final pt in letterPoints) {
+        stars.add(StarModel(
+          startX + pt[0] * scale * 2.8,
+          startY + pt[1] * scale * 2.2,
+          floatOffset: rand.nextDouble() * 2 * pi,
+        ));
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("✨ اسمكِ يلمع في السماء يا آلاء"),
+        duration: Duration(seconds: 2),
+        backgroundColor: Colors.deepPurple,
+      ),
+    );
   }
 
   // ================ دوال المهام ================
@@ -1139,6 +1238,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       case 14: return [const Color(0xFFE8F5E9), const Color(0xFFC8E6C9)];
       case 15: return [const Color(0xFFFCE4EC), const Color(0xFFF8BBD9)];
       case 16: return [const Color(0xFF0a0a0a), const Color(0xFF1a1a1a)];
+      case 17: return [const Color(0xFFFF6F00), const Color(0xFFFFCC02)];
       default: return [const Color(0xFFFDEEF2), const Color(0xFFFFF0F5)];
     }
   }
@@ -1176,6 +1276,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                 _sidebarItem(9, "الموسيقى", Icons.music_note),
                 _sidebarItem(11, "📚 التمريض", Icons.medical_services),
                 _sidebarItem(16, "🎬 السينما", Icons.movie),
+                _sidebarItem(17, "🍳 وصفاتي", Icons.restaurant_menu),
                 const Divider(),
                 _sidebarItem(12, "🌙 ورد يومي", Icons.favorite_border),
                 _sidebarItem(13, "⏱️ بومودورو", Icons.timer),
@@ -1330,6 +1431,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       case 14: return _buildDayCounterPage();
       case 15: return _buildLockedMessagesPage();
       case 16: return _buildCinemaPage();
+      case 17: return _buildRecipesPage();
       default: return _buildComingSoon();
     }
   }
@@ -1799,48 +1901,32 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       ),
       child: Stack(
         children: [
-          // النجوم
+          // النجوم - قابلة للسحب والتحريك
           ...stars.asMap().entries.map((entry) {
             int idx = entry.key;
             StarModel star = entry.value;
-            return Positioned(
-              left: star.x,
-              top: star.y,
-              child: AnimatedBuilder(
-                animation: _skyAnimationController,
-                builder: (context, child) {
-                  double floatY = sin(_skyAnimationController.value * 2 * pi + star.floatOffset) * 5;
-                  return Transform.translate(
-                    offset: Offset(0, floatY),
-                    child: Draggable<int>(
-                      data: idx,
-                      feedback: Text(
-                        _timeOfDay == "night" ? "⭐" : _timeOfDay == "sunset" ? "✨" : "🌸",
-                        style: TextStyle(fontSize: 15.0 + (idx % 3) * 5),
-                      ),
-                      childWhenDragging: const SizedBox.shrink(),
-                      onDragEnd: (drag) => setState(() {
-                        final box = context.findRenderObject() as RenderBox?;
-                        if (box != null) {
-                          final local = box.globalToLocal(drag.offset);
-                          star.x = local.dx;
-                          star.y = local.dy;
-                        }
-                      }),
-                      child: GestureDetector(
-                        onPanUpdate: (details) => setState(() {
-                          star.x += details.delta.dx;
-                          star.y += details.delta.dy;
-                        }),
-                        child: Text(
-                          _timeOfDay == "night" ? "⭐" : _timeOfDay == "sunset" ? "✨" : "🌸",
-                          style: TextStyle(fontSize: 15.0 + (idx % 3) * 5),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
+            final emoji = _timeOfDay == "night" ? "⭐"
+              : _timeOfDay == "sunset" ? "✨" : "🌸";
+            final size = 14.0 + (idx % 4) * 4.0;
+            return AnimatedBuilder(
+              animation: _skyAnimationController,
+              builder: (context, child) {
+                final floatY = sin(
+                  _skyAnimationController.value * 2 * pi + star.floatOffset) * 6;
+                return Positioned(
+                  left: star.x,
+                  top: star.y + floatY,
+                  child: GestureDetector(
+                    onPanUpdate: (d) => setState(() {
+                      star.x = (star.x + d.delta.dx).clamp(-10.0, 380.0);
+                      star.y = (star.y + d.delta.dy).clamp(-10.0, 700.0);
+                    }),
+                    onLongPress: () => setState(() => stars.removeAt(idx)),
+                    child: Text(emoji,
+                      style: TextStyle(fontSize: size)),
+                  ),
+                );
+              },
             );
           }),
 
@@ -1869,70 +1955,53 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
             right: 0,
             child: Column(
               children: [
-                // سلة المهملات للنجوم
-                if (stars.isNotEmpty)
-                  DragTarget<int>(
-                    onAcceptWithDetails: (details) {
-                      setState(() => stars.removeAt(details.data));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("🗑️ تم حذف النجمة"), duration: Duration(seconds: 1)),
-                      );
-                    },
-                    builder: (ctx, candidateData, rejectedData) => AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.all(12),
-                      margin: const EdgeInsets.only(bottom: 12),
-                      decoration: BoxDecoration(
-                        color: candidateData.isNotEmpty ? Colors.red : Colors.black38,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: candidateData.isNotEmpty ? Colors.red : Colors.white30,
-                          width: 2,
-                        ),
-                      ),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.delete_outline,
-                          color: candidateData.isNotEmpty ? Colors.white : Colors.white60, size: 20),
-                        const SizedBox(width: 6),
-                        Text("🗑️ اسحبي النجمة هنا لحذفها",
-                          style: TextStyle(
-                            color: candidateData.isNotEmpty ? Colors.white : Colors.white60,
-                            fontSize: 12)),
-                      ]),
-                    ),
-                  ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     ElevatedButton.icon(
                       onPressed: _addStar,
                       icon: const Text("⭐"),
-                      label: const Text("نجمة جديدة"),
+                      label: const Text("نجمة"),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white24,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20)),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: _writeNameWithStars,
+                      icon: const Text("✍️"),
+                      label: const Text("اكتبي اسمكِ"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.pinkAccent.withOpacity(0.5),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     ElevatedButton.icon(
                       onPressed: () => setState(() {
                         isNightMode = !isNightMode;
                         _timeOfDay = isNightMode ? "night" : "morning";
                       }),
-                      icon: Icon(_timeOfDay == "night" ? Icons.wb_sunny : Icons.nights_stay),
+                      icon: Icon(_timeOfDay == "night"
+                        ? Icons.wb_sunny : Icons.nights_stay),
                       label: Text(_timeOfDay == "night" ? "نهار" : "ليل"),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white24,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20)),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                const Text("اسحبي النجوم لتشكيل اسمكِ في السماء ⭐",
-                  style: TextStyle(color: Colors.white70, fontSize: 12)),
+                const SizedBox(height: 6),
+                const Text("اسحبي النجوم بإصبعكِ • اضغطي طويلاً لحذف ⭐",
+                  style: TextStyle(color: Colors.white54, fontSize: 11)),
               ],
             ),
           ),
@@ -2054,45 +2123,366 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
   }
 
   Widget _buildCoupleList() {
-    return Padding(
-      padding: const EdgeInsets.all(20),
+    return DefaultTabController(
+      length: 2,
       child: Column(
         children: [
-          const Row(
-            children: [
-              Icon(Icons.favorite, color: Colors.pink, size: 40),
-              SizedBox(width: 10),
-              Text("❤️ مهامنا المشتركة", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Expanded(child: ListView.builder(
-            itemCount: coupleTasks.length,
-            itemBuilder: (context, index) => Card(
-              color: Colors.pink.shade50,
-              child: ListTile(
-                leading: const Icon(Icons.favorite, color: Colors.pink),
-                title: Text(coupleTasks[index]),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete),
-                  onPressed: () => setState(() => coupleTasks.removeAt(index)),
-                ),
-              ),
+          // ===== Header =====
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.pink.shade700, Colors.pink.shade400]),
             ),
-          )),
-          Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: ElevatedButton.icon(
-              onPressed: _addCoupleTask,
-              icon: const Icon(Icons.add),
-              label: const Text("إضافة مهمة"),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.pink),
+            child: Column(
+              children: [
+                const SizedBox(height: 16),
+                const Text("💑 قائمة مع زوجي",
+                  style: TextStyle(color: Colors.white, fontSize: 22,
+                    fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                const Text("كل شيء نتشاركه في مكان واحد 💕",
+                  style: TextStyle(color: Colors.white70, fontSize: 13)),
+                const SizedBox(height: 12),
+                const TabBar(
+                  indicatorColor: Colors.white,
+                  indicatorWeight: 3,
+                  labelColor: Colors.white,
+                  unselectedLabelColor: Colors.white54,
+                  tabs: [
+                    Tab(icon: Icon(Icons.checklist_rounded), text: "المهام المشتركة"),
+                    Tab(icon: Icon(Icons.video_library_rounded), text: "صندوق الفيديوهات"),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // ===== المحتوى =====
+          Expanded(
+            child: TabBarView(
+              children: [
+
+                // ========== تاب 1: المهام المشتركة ==========
+                Column(
+                  children: [
+                    Expanded(
+                      child: coupleTasks.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text("💕", style: TextStyle(fontSize: 60)),
+                                const SizedBox(height: 12),
+                                Text("أضيفا أول مهمة مشتركة!",
+                                  style: TextStyle(color: Colors.grey.shade500,
+                                    fontSize: 16)),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.all(12),
+                            itemCount: coupleTasks.length,
+                            itemBuilder: (ctx, i) => Dismissible(
+                              key: Key('couple_$i'),
+                              direction: DismissDirection.endToStart,
+                              background: Container(
+                                alignment: Alignment.centerRight,
+                                padding: const EdgeInsets.only(right: 20),
+                                margin: const EdgeInsets.only(bottom: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade400,
+                                  borderRadius: BorderRadius.circular(14)),
+                                child: const Icon(Icons.delete_sweep,
+                                  color: Colors.white, size: 26),
+                              ),
+                              onDismissed: (_) {
+                                setState(() => coupleTasks.removeAt(i));
+                                _saveTasks();
+                              },
+                              child: Card(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                color: Colors.pink.shade50,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14)),
+                                child: ListTile(
+                                  leading: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.pink.shade100,
+                                      shape: BoxShape.circle),
+                                    child: const Icon(Icons.favorite,
+                                      color: Colors.pink, size: 20)),
+                                  title: Text(coupleTasks[i],
+                                    style: const TextStyle(fontSize: 15)),
+                                ),
+                              ),
+                            ),
+                          ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: ElevatedButton.icon(
+                        onPressed: _addCoupleTask,
+                        icon: const Icon(Icons.add),
+                        label: const Text("إضافة مهمة مشتركة"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.pink.shade500,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(double.infinity, 48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // ========== تاب 2: صندوق الفيديوهات ==========
+                Column(
+                  children: [
+                    // Banner صندوق
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.purple.shade700, Colors.pink.shade500]),
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [BoxShadow(
+                          color: Colors.purple.withOpacity(0.3),
+                          blurRadius: 12, offset: const Offset(0, 4))],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white24,
+                              borderRadius: BorderRadius.circular(12)),
+                            child: const Icon(Icons.video_library,
+                              color: Colors.white, size: 32)),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text("📦 صندوق الفيديوهات",
+                                  style: TextStyle(color: Colors.white,
+                                    fontSize: 17, fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 4),
+                                Text("${_coupleVideos.length} رابط محفوظ",
+                                  style: const TextStyle(color: Colors.white70,
+                                    fontSize: 12)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // قائمة الروابط
+                    Expanded(
+                      child: _coupleVideos.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text("📦", style: TextStyle(fontSize: 60)),
+                                const SizedBox(height: 12),
+                                Text("الصندوق فارغ!
+أضيفا أول فيديو معاً 🎬",
+                                  style: TextStyle(color: Colors.grey.shade500,
+                                    fontSize: 15),
+                                  textAlign: TextAlign.center),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            itemCount: _coupleVideos.length,
+                            itemBuilder: (ctx, i) {
+                              final v = _coupleVideos[i];
+                              final url = v['url'] ?? '';
+                              final isYoutube = url.contains('youtube') ||
+                                url.contains('youtu.be');
+                              final isTiktok = url.contains('tiktok');
+                              return Dismissible(
+                                key: Key('cvid_$i'),
+                                direction: DismissDirection.endToStart,
+                                background: Container(
+                                  alignment: Alignment.centerRight,
+                                  padding: const EdgeInsets.only(right: 20),
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade400,
+                                    borderRadius: BorderRadius.circular(14)),
+                                  child: const Icon(Icons.delete_sweep,
+                                    color: Colors.white, size: 26),
+                                ),
+                                onDismissed: (_) {
+                                  setState(() => _coupleVideos.removeAt(i));
+                                  _saveAll();
+                                },
+                                child: Card(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14)),
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(14),
+                                    onTap: () async {
+                                      final uri = Uri.tryParse(url);
+                                      if (uri != null && await canLaunchUrl(uri)) {
+                                        await launchUrl(uri,
+                                          mode: LaunchMode.externalApplication);
+                                      }
+                                    },
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(12),
+                                      child: Row(
+                                        children: [
+                                          // أيقونة المنصة
+                                          Container(
+                                            width: 48, height: 48,
+                                            decoration: BoxDecoration(
+                                              color: isYoutube
+                                                ? Colors.red.shade50
+                                                : isTiktok
+                                                  ? Colors.black12
+                                                  : Colors.purple.shade50,
+                                              borderRadius: BorderRadius.circular(12)),
+                                            child: Center(
+                                              child: Text(
+                                                isYoutube ? "▶️"
+                                                  : isTiktok ? "🎵"
+                                                  : "🔗",
+                                                style: const TextStyle(fontSize: 24)),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                              children: [
+                                                Text(v['title'] ?? 'فيديو',
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 14),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis),
+                                                const SizedBox(height: 3),
+                                                Text(url,
+                                                  style: TextStyle(
+                                                    color: Colors.grey.shade500,
+                                                    fontSize: 11),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis),
+                                              ],
+                                            ),
+                                          ),
+                                          Icon(Icons.open_in_new,
+                                            color: Colors.purple.shade300,
+                                            size: 20),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                    ),
+
+                    // زر إضافة رابط
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: ElevatedButton.icon(
+                        onPressed: _addCoupleVideo,
+                        icon: const Icon(Icons.add_link),
+                        label: const Text("إضافة رابط فيديو 🎬"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.purple.shade600,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(double.infinity, 48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+              ],
             ),
           ),
         ],
       ),
     );
   }
+
+  void _addCoupleVideo() {
+    final titleCtrl = TextEditingController();
+    final urlCtrl   = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text("📦 إضافة فيديو للصندوق"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleCtrl,
+              decoration: InputDecoration(
+                labelText: "اسم الفيديو",
+                hintText: "مثال: فيلم رومانسي 💕",
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12)),
+                prefixIcon: const Icon(Icons.title),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: urlCtrl,
+              keyboardType: TextInputType.url,
+              decoration: InputDecoration(
+                labelText: "رابط الفيديو",
+                hintText: "https://youtube.com/...",
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12)),
+                prefixIcon: const Icon(Icons.link),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("إلغاء")),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.purple.shade600,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12))),
+            onPressed: () {
+              if (urlCtrl.text.trim().isEmpty) return;
+              setState(() => _coupleVideos.insert(0, {
+                'title': titleCtrl.text.trim().isEmpty
+                  ? 'فيديو ${_coupleVideos.length + 1}'
+                  : titleCtrl.text.trim(),
+                'url': urlCtrl.text.trim(),
+              }));
+              _saveAll();
+              Navigator.pop(ctx);
+            },
+            child: const Text("حفظ 💾")),
+        ],
+      ),
+    );
+  }
+
 
   Widget _buildNovelLibrary() {
     return Padding(
@@ -3999,6 +4389,714 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
 // ================================================================
 // ================ صفحة عرض الصور ================================
 // ================================================================
+  // =================== صفحة الوصفات ===================
+  Widget _buildRecipesPage() {
+    final cats = [
+      {"label": "الكل",       "emoji": "🍽️"},
+      {"label": "🍖 رئيسية",  "emoji": "🍖"},
+      {"label": "🍰 حلويات",  "emoji": "🍰"},
+      {"label": "🥗 سلطات",   "emoji": "🥗"},
+      {"label": "🧃 مشروبات", "emoji": "🧃"},
+      {"label": "⭐ مفضلة",   "emoji": "⭐"},
+    ];
+    final filtered = _recipeCategory == "الكل"
+      ? _recipes
+      : _recipeCategory == "⭐ مفضلة"
+        ? _recipes.where((r) => r.isFavorite).toList()
+        : _recipes.where((r) => r.category == _recipeCategory).toList();
+
+    return Column(
+      children: [
+        // ===== Header مطبخي =====
+        Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft, end: Alignment.bottomRight,
+              colors: [const Color(0xFFE65100), const Color(0xFFFF8F00)]),
+          ),
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text("👩‍🍳 مطبخ آلاء",
+                          style: TextStyle(color: Colors.white, fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5)),
+                        const SizedBox(height: 4),
+                        Text(
+                          _recipes.isEmpty
+                            ? "أضيفي وصفتكِ الأولى!"
+                            : "${_recipes.length} وصفة • ${_recipes.where((r) => r.isFavorite).length} مفضلة",
+                          style: const TextStyle(color: Colors.white70,
+                            fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: _addRecipe,
+                    child: Container(
+                      width: 48, height: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(Icons.add, color: Colors.white, size: 28)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // ===== فلتر الفئات =====
+        Container(
+          color: Colors.white,
+          height: 60,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            itemCount: cats.length,
+            itemBuilder: (ctx, i) {
+              final cat  = cats[i]["label"]!;
+              final sel  = _recipeCategory == cat;
+              return GestureDetector(
+                onTap: () => setState(() => _recipeCategory = cat),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: sel ? const Color(0xFFE65100) : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: sel ? [BoxShadow(
+                      color: const Color(0xFFE65100).withOpacity(0.35),
+                      blurRadius: 8, offset: const Offset(0, 3))] : [],
+                  ),
+                  child: Text(cat,
+                    style: TextStyle(
+                      color: sel ? Colors.white : Colors.grey.shade700,
+                      fontWeight: sel ? FontWeight.bold : FontWeight.normal,
+                      fontSize: 13)),
+                ),
+              );
+            },
+          ),
+        ),
+        const Divider(height: 1),
+
+        // ===== قائمة الوصفات =====
+        Expanded(
+          child: filtered.isEmpty
+            ? _emptyRecipes()
+            : GridView.builder(
+                padding: const EdgeInsets.all(14),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 0.82,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                ),
+                itemCount: filtered.length,
+                itemBuilder: (ctx, i) {
+                  final r = filtered[i];
+                  final realIdx = _recipes.indexOf(r);
+                  return _recipeCard(r, realIdx);
+                },
+              ),
+        ),
+
+        // ===== زر الإضافة =====
+        Container(
+          color: Colors.white,
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: ElevatedButton.icon(
+            onPressed: _addRecipe,
+            icon: const Icon(Icons.add_circle_outline),
+            label: const Text("وصفة جديدة"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE65100),
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 50),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14)),
+              textStyle: const TextStyle(fontSize: 16,
+                fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _emptyRecipes() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(30),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              shape: BoxShape.circle,
+            ),
+            child: const Text("👩‍🍳", style: TextStyle(fontSize: 60)),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            _recipes.isEmpty
+              ? "مطبخكِ فارغ يا آلاء!
+أضيفي أول وصفة 🍳"
+              : "لا توجد وصفات في هذه الفئة",
+            style: TextStyle(color: Colors.grey.shade500, fontSize: 16,
+              height: 1.6),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _recipeCard(RecipeModel r, int realIdx) {
+    // لون الفئة
+    final catColor = r.category.contains("حلوي")
+      ? Colors.pink.shade400
+      : r.category.contains("مشرو")
+        ? Colors.blue.shade400
+        : r.category.contains("سلط")
+          ? Colors.green.shade500
+          : Colors.orange.shade600;
+
+    return GestureDetector(
+      onTap: () => _showRecipeDetail(r, realIdx),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.07),
+              blurRadius: 10, offset: const Offset(0, 4)),
+          ],
+        ),
+        child: Column(
+          children: [
+            // صورة/أيقونة الوصفة
+            Expanded(
+              flex: 5,
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft, end: Alignment.bottomRight,
+                    colors: [
+                      catColor.withOpacity(0.15),
+                      catColor.withOpacity(0.30),
+                    ]),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(18)),
+                ),
+                child: Stack(
+                  children: [
+                    Center(
+                      child: Text(r.emoji,
+                        style: const TextStyle(fontSize: 52))),
+                    // زر المفضلة
+                    Positioned(
+                      top: 8, right: 8,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() =>
+                            _recipes[realIdx].isFavorite =
+                              !_recipes[realIdx].isFavorite);
+                          _saveAll();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [BoxShadow(
+                              color: Colors.black12, blurRadius: 4)],
+                          ),
+                          child: Icon(
+                            r.isFavorite ? Icons.favorite : Icons.favorite_border,
+                            color: r.isFavorite ? Colors.red : Colors.grey,
+                            size: 16),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // معلومات الوصفة
+            Expanded(
+              flex: 4,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(r.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold,
+                        fontSize: 14),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: catColor.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(8)),
+                          child: Text(
+                            r.category.replaceAll(RegExp(r'^[^ ]+ '), ''),
+                            style: TextStyle(color: catColor, fontSize: 10,
+                              fontWeight: FontWeight.w600)),
+                        ),
+                        GestureDetector(
+                          onTap: () => _editRecipe(realIdx),
+                          child: Icon(Icons.edit_outlined,
+                            size: 16, color: Colors.grey.shade400)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showRecipeDetail(RecipeModel r, int idx) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        height: MediaQuery.of(context).size.height * 0.88,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+        ),
+        child: Column(
+          children: [
+            // Handle
+            Container(
+              width: 44, height: 5, margin: const EdgeInsets.only(top: 12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(3)),
+            ),
+            // Header
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+              child: Row(
+                children: [
+                  Container(
+                    width: 72, height: 72,
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: Colors.orange.shade100, width: 2),
+                    ),
+                    child: Center(
+                      child: Text(r.emoji,
+                        style: const TextStyle(fontSize: 40))),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(r.name,
+                          style: const TextStyle(fontSize: 20,
+                            fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade100,
+                            borderRadius: BorderRadius.circular(10)),
+                          child: Text(r.category,
+                            style: TextStyle(color: Colors.orange.shade800,
+                              fontSize: 12, fontWeight: FontWeight.w600)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      r.isFavorite ? Icons.favorite : Icons.favorite_border,
+                      color: r.isFavorite ? Colors.red : Colors.grey),
+                    onPressed: () {
+                      setState(() => _recipes[idx].isFavorite = !_recipes[idx].isFavorite);
+                      _saveAll();
+                      Navigator.pop(ctx);
+                      _showRecipeDetail(_recipes[idx], idx);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            // المحتوى
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _detailSection("🧂 المكونات", r.ingredients,
+                      Colors.green.shade700),
+                    const SizedBox(height: 20),
+                    _detailSection("📝 طريقة التحضير", r.steps,
+                      Colors.orange.shade700),
+                  ],
+                ),
+              ),
+            ),
+            // أزرار
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () { Navigator.pop(ctx); _editRecipe(idx); },
+                      icon: const Icon(Icons.edit, size: 18),
+                      label: const Text("تعديل"),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFE65100),
+                        side: const BorderSide(color: Color(0xFFE65100)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        setState(() => _recipes.removeAt(idx));
+                        _saveAll();
+                      },
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      label: const Text("حذف"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade400,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _detailSection(String title, String body, Color color) {
+    final lines = body.split("\n");
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(width: 4, height: 20,
+              decoration: BoxDecoration(color: color,
+                borderRadius: BorderRadius.circular(2))),
+            const SizedBox(width: 8),
+            Text(title, style: TextStyle(fontSize: 16,
+              fontWeight: FontWeight.bold, color: color)),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: lines.asMap().entries.map((e) {
+              final line = e.value.trim();
+              if (line.isEmpty) return const SizedBox(height: 4);
+              final isNumbered = RegExp(r"^[0-9]+[.)]").hasMatch(line);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (isNumbered) const SizedBox()
+                    else Padding(
+                      padding: const EdgeInsets.only(top: 5, left: 4),
+                      child: Container(
+                        width: 6, height: 6,
+                        decoration: BoxDecoration(
+                          color: color, shape: BoxShape.circle)),
+                    ),
+                    if (!isNumbered) const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(line,
+                        style: const TextStyle(fontSize: 14, height: 1.6))),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _addRecipe() => _showRecipeDialog();
+  void _editRecipe(int idx) =>
+    _showRecipeDialog(existing: _recipes[idx], idx: idx);
+
+  void _showRecipeDialog({RecipeModel? existing, int? idx}) {
+    final nameCtrl  = TextEditingController(text: existing?.name ?? "");
+    final ingrCtrl  = TextEditingController(text: existing?.ingredients ?? "");
+    final stepsCtrl = TextEditingController(text: existing?.steps ?? "");
+    String selCat   = existing?.category ?? "🍖 رئيسية";
+    String selEmoji = existing?.emoji    ?? "🍽️";
+
+    const emojis = ["🍽️","🍗","🥩","🍝","🍲","🥘","🍛","🥗","🍰","🧁",
+                    "🍪","🎂","🥧","🍩","🧃","☕","🫖","🥤","🍜","🥞"];
+    const cats   = ["🍖 رئيسية","🍰 حلويات","🥗 سلطات","🧃 مشروبات"];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            height: MediaQuery.of(context).size.height * 0.90,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              children: [
+                // Handle + عنوان
+                Container(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [const Color(0xFFE65100), Colors.orange.shade400]),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(24)),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(existing == null ? "🍳 وصفة جديدة" : "✏️ تعديل الوصفة",
+                        style: const TextStyle(color: Colors.white,
+                          fontSize: 18, fontWeight: FontWeight.bold)),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white70),
+                        onPressed: () => Navigator.pop(ctx)),
+                    ],
+                  ),
+                ),
+                // النموذج
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // اسم الوصفة
+                        TextField(
+                          controller: nameCtrl,
+                          decoration: InputDecoration(
+                            labelText: "اسم الوصفة *",
+                            prefixText: "$selEmoji  ",
+                            filled: true, fillColor: Colors.grey.shade50,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // اختيار الإيموجي
+                        const Text("🎨 الأيقونة",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          height: 52,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: emojis.length,
+                            itemBuilder: (ctx, i) => GestureDetector(
+                              onTap: () => setS(() => selEmoji = emojis[i]),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                width: 46, height: 46,
+                                margin: const EdgeInsets.only(right: 6),
+                                decoration: BoxDecoration(
+                                  color: selEmoji == emojis[i]
+                                    ? Colors.orange.shade100 : Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: selEmoji == emojis[i]
+                                      ? Colors.orange : Colors.transparent,
+                                    width: 2),
+                                ),
+                                child: Center(child: Text(emojis[i],
+                                  style: const TextStyle(fontSize: 24))),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // الفئة
+                        const Text("📂 الفئة",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: cats.map((c) => Expanded(
+                            child: GestureDetector(
+                              onTap: () => setS(() => selCat = c),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                margin: const EdgeInsets.only(right: 6),
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: selCat == c
+                                    ? const Color(0xFFE65100)
+                                    : Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(c,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: selCat == c
+                                      ? Colors.white : Colors.grey.shade700,
+                                    fontSize: 11,
+                                    fontWeight: selCat == c
+                                      ? FontWeight.bold : FontWeight.normal)),
+                              ),
+                            ),
+                          )).toList(),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // المكونات
+                        const Text("🧂 المكونات",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: ingrCtrl,
+                          maxLines: 5,
+                          decoration: InputDecoration(
+                            hintText: "مثال:
+2 كوب دقيق
+1 بيضة
+ملح حسب الذوق",
+                            filled: true, fillColor: Colors.grey.shade50,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none),
+                            alignLabelWithHint: true,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // الخطوات
+                        const Text("📝 طريقة التحضير",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: stepsCtrl,
+                          maxLines: 6,
+                          decoration: InputDecoration(
+                            hintText: "1. سخّني الفرن على 180 درجة
+2. اخلطي المكونات
+3. ...",
+                            filled: true, fillColor: Colors.grey.shade50,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none),
+                            alignLabelWithHint: true,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
+                  ),
+                ),
+                // زر الحفظ
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFE65100),
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 52),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                      textStyle: const TextStyle(fontSize: 16,
+                        fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: () {
+                      if (nameCtrl.text.trim().isEmpty) return;
+                      final recipe = RecipeModel(
+                        nameCtrl.text.trim(), selCat,
+                        ingrCtrl.text.trim(), stepsCtrl.text.trim(),
+                        emoji: selEmoji,
+                        isFavorite: existing?.isFavorite ?? false,
+                      );
+                      setState(() {
+                        if (idx != null) {
+                          _recipes[idx] = recipe;
+                        } else {
+                          _recipes.insert(0, recipe);
+                        }
+                      });
+                      _saveAll();
+                      Navigator.pop(ctx);
+                    },
+                    child: Text(existing == null ? "✅ حفظ الوصفة" : "✅ تحديث"),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+
 class _ImageViewerPage extends StatefulWidget {
   final String imagePath;
   const _ImageViewerPage({required this.imagePath});
