@@ -90,6 +90,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
   
   // متغيرات الحالة المزاجية
   AlaaMood currentMood = AlaaMood.peaceful;
+  bool _isSidebarOpen = true; // ✅ للتحكم في إظهار/إخفاء القائمة
   String? lastAnalysisResult;
   
   // متغيرات نجوم التأمل
@@ -673,7 +674,12 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     return Scaffold(
       body: Row(
         children: [
-          _buildSidebar(),
+          // ✅ القائمة الجانبية قابلة للإخفاء
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            width: _isSidebarOpen ? 260 : 0,
+            child: _isSidebarOpen ? _buildSidebar() : const SizedBox.shrink(),
+          ),
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -683,7 +689,29 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                   colors: _getGradientForIndex(),
                 ),
               ),
-              child: _buildMainContent(),
+              child: Stack(
+                children: [
+                  _buildMainContent(),
+                  // ✅ زر إظهار/إخفاء القائمة
+                  Positioned(
+                    top: 10,
+                    left: 10,
+                    child: AnimatedRotation(
+                      turns: _isSidebarOpen ? 0 : 0.5,
+                      duration: const Duration(milliseconds: 300),
+                      child: FloatingActionButton.small(
+                        heroTag: "sidebar_toggle",
+                        backgroundColor: Colors.pink.shade100,
+                        onPressed: () => setState(() => _isSidebarOpen = !_isSidebarOpen),
+                        child: Icon(
+                          _isSidebarOpen ? Icons.menu_open : Icons.menu,
+                          color: Colors.pink,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -767,16 +795,10 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
             ),
           ),
           // ✅ زر إغلاق القائمة
-          Builder(
-            builder: (ctx) => IconButton(
-              icon: const Icon(Icons.close, color: Colors.grey, size: 20),
-              tooltip: "إغلاق القائمة",
-              onPressed: () {
-                if (Scaffold.of(ctx).isDrawerOpen) {
-                  Navigator.pop(ctx);
-                }
-              },
-            ),
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.grey, size: 20),
+            tooltip: "إغلاق القائمة",
+            onPressed: () => setState(() => _isSidebarOpen = false),
           ),
         ],
       ),
@@ -791,11 +813,13 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
       leading: Icon(icon, color: isSelected ? Colors.pink : Colors.black54),
       title: Text(title, style: TextStyle(color: isSelected ? Colors.pink : Colors.black87)),
       onTap: () {
-        setState(() => _selectedIndex = index);
-        // ✅ إغلاق القائمة الجانبية تلقائياً إذا كانت مفتوحة كـ Drawer
-        if (Scaffold.of(context).isDrawerOpen) {
-          Navigator.pop(context);
-        }
+        setState(() {
+          _selectedIndex = index;
+          // ✅ إغلاق القائمة تلقائياً على الشاشات الصغيرة
+          if (MediaQuery.of(context).size.width < 800) {
+            _isSidebarOpen = false;
+          }
+        });
       },
     );
   }
@@ -1472,11 +1496,13 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
         style: TextStyle(color: isSelected ? Colors.pinkAccent : Colors.black87,
           fontWeight: FontWeight.bold)),
       onTap: () {
-        setState(() => _selectedIndex = 10);
-        // ✅ إغلاق القائمة الجانبية تلقائياً
-        if (Scaffold.of(context).isDrawerOpen) {
-          Navigator.pop(context);
-        }
+        setState(() {
+          _selectedIndex = 10;
+          // ✅ إغلاق القائمة تلقائياً على الشاشات الصغيرة
+          if (MediaQuery.of(context).size.width < 800) {
+            _isSidebarOpen = false;
+          }
+        });
       },
     );
   }
