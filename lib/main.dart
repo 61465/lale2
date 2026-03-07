@@ -646,12 +646,19 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
           husbandDone: i < wcH.length ? wcH[i] == '1' : false));
       }
       // ===== المعلومات =====
-    await prefs.setStringList('infoTitles',   _infoNotes.map((n) => n.title).toList());
-    await prefs.setStringList('infoContents', _infoNotes.map((n) => n.content).toList());
-    await prefs.setStringList('infoCats',     _infoNotes.map((n) => n.category).toList());
-    await prefs.setStringList('infoEmojis',   _infoNotes.map((n) => n.emoji).toList());
-    await prefs.setStringList('infoFavs',     _infoNotes.map((n) => n.isFavorite ? "1" : "0").toList());
-    // ===== الكورسات =====
+      final inT = prefs.getStringList('infoTitles')   ?? [];
+      final inC = prefs.getStringList('infoContents') ?? [];
+      final inCt= prefs.getStringList('infoCats')     ?? [];
+      final inE = prefs.getStringList('infoEmojis')   ?? [];
+      final inF = prefs.getStringList('infoFavs')     ?? [];
+      if (inT.isNotEmpty) {
+        _infoNotes = List.generate(inT.length, (i) => InfoNote(
+          inT[i], i < inC.length ? inC[i] : '',
+          i < inCt.length ? inCt[i] : 'أخرى',
+          emoji: i < inE.length ? inE[i] : '💡',
+          isFavorite: i < inF.length ? inF[i] == '1' : false));
+      }
+      // ===== الكورسات =====
       final cN = prefs.getStringList('courseNames') ?? [];
       final cC = prefs.getStringList('courseCats')  ?? [];
       final cU = prefs.getStringList('courseUrls')  ?? [];
@@ -749,6 +756,12 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     await prefs.setStringList('wcEmojis', _weekChallenges.map((c) => c.emoji).toList());
     await prefs.setStringList('wcAlaa',   _weekChallenges.map((c) => c.alaasDone ? "1" : "0").toList());
     await prefs.setStringList('wcHusb',   _weekChallenges.map((c) => c.husbandDone ? "1" : "0").toList());
+    // ===== المعلومات =====
+    await prefs.setStringList('infoTitles',   _infoNotes.map((n) => n.title).toList());
+    await prefs.setStringList('infoContents', _infoNotes.map((n) => n.content).toList());
+    await prefs.setStringList('infoCats',     _infoNotes.map((n) => n.category).toList());
+    await prefs.setStringList('infoEmojis',   _infoNotes.map((n) => n.emoji).toList());
+    await prefs.setStringList('infoFavs',     _infoNotes.map((n) => n.isFavorite ? "1" : "0").toList());
     // ===== الكورسات =====
     await prefs.setStringList('courseNames', _courses.map((c) => c.name).toList());
     await prefs.setStringList('courseCats',  _courses.map((c) => c.category).toList());
