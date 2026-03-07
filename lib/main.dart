@@ -2097,12 +2097,23 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     if (!_meditationSoundOn) return;
     try {
       final file = _getMeditationSoundFile(scene);
+      debugPrint('🔊 Playing: audio/$file');
       await _meditationPlayer.stop();
       await _meditationPlayer.setReleaseMode(ReleaseMode.loop);
-      await _meditationPlayer.setVolume(0.65);
+      await _meditationPlayer.setVolume(1.0);
       await _meditationPlayer.play(AssetSource('audio/$file'));
+      debugPrint('🔊 Play called successfully');
     } catch (e) {
-      debugPrint('🔊 Meditation sound error: $e');
+      debugPrint('🔊 ERROR: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطأ صوت: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
     }
   }
 
