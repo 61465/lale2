@@ -2074,298 +2074,197 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
   }
 
   // حالة عناصر المشاهد المتحركة
-  List<Color> _getNatureColors() {
-    switch (_natureScene) {
-      case "river":
-        return [const Color(0xFF1B5E20), const Color(0xFF388E3C),
-                const Color(0xFF1565C0), const Color(0xFF1976D2)];
-      case "waterfall":
-        return [const Color(0xFF0D47A1), const Color(0xFF1565C0),
-                const Color(0xFF26C6DA), const Color(0xFF80DEEA)];
-      case "nature":
-        return [const Color(0xFF1B5E20), const Color(0xFF2E7D32),
-                const Color(0xFF558B2F), const Color(0xFF7CB342)];
-      case "farm":
-        return [const Color(0xFF1A237E), const Color(0xFF283593),
-                const Color(0xFF33691E), const Color(0xFF558B2F)];
-      default: // sky
-        return _getSkyColors();
-    }
-  }
-
-  String _getNatureLabel() {
-    switch (_natureScene) {
-      case "river":    return "🌊 على ضفة النهر";
-      case "waterfall":return "💧 عند الشلال";
-      case "nature":   return "🌿 في الطبيعة";
-      case "farm":     return "🌾 في المزرعة";
-      default:         return _getSkyEmoji();
-    }
-  }
-
-  Widget _buildNatureEmojis() {
-    final rand = Random(42);
-    switch (_natureScene) {
-      case "river":
-        return Stack(children: [
-          ...List.generate(8, (i) {
-            final x = (i * 47.0) % 340;
-            return AnimatedBuilder(
-              animation: _skyAnimationController,
-              builder: (ctx, _) {
-                final wave = sin(_skyAnimationController.value*2*pi + i*0.8) * 8;
-                return Positioned(
-                  left: x, top: 200 + wave + (i % 3)*40,
-                  child: Text(i%2==0?"🌊":"💧",
-                    style: const TextStyle(fontSize: 22)));
-              });
-          }),
-          ...List.generate(5, (i) {
-            final x = (i * 70.0 + 20) % 340;
-            return Positioned(left: x, top: 60.0 + (i%3)*50,
-              child: Text(i%2==0?"🌳":"🌲",
-                style: const TextStyle(fontSize: 28)));
-          }),
-          ...List.generate(3, (i) {
-            final x = (i * 110.0 + 10) % 340;
-            return AnimatedBuilder(
-              animation: _skyAnimationController,
-              builder: (ctx, _) {
-                final f = sin(_skyAnimationController.value*2*pi + i*1.2)*5;
-                return Positioned(left: x, top: 330 + f,
-                  child: const Text("🦆",style: TextStyle(fontSize: 20)));
-              });
-          }),
-        ]);
-      case "waterfall":
-        return Stack(children: [
-          ...List.generate(10, (i) {
-            final x = 100.0 + (i % 5)*20;
-            return AnimatedBuilder(
-              animation: _skyAnimationController,
-              builder: (ctx, _) {
-                final fall = (_skyAnimationController.value * 400 + i*40) % 400;
-                return Positioned(left: x, top: fall,
-                  child: Text(i%3==0?"💧":"🌊",
-                    style: TextStyle(fontSize: 16+rand.nextInt(8).toDouble())));
-              });
-          }),
-          ...List.generate(4, (i) => Positioned(
-            left: (i*80).toDouble(), top: 60+(i%2)*30,
-            child: const Text("🌿", style: TextStyle(fontSize: 24)))),
-          ...List.generate(3, (i) => Positioned(
-            left: (i*120+10).toDouble(), top: 380,
-            child: const Text("🐦", style: TextStyle(fontSize: 18)))),
-        ]);
-      case "nature":
-        return Stack(children: [
-          ...List.generate(8, (i) => Positioned(
-            left: (i*42.0)%340, top: 300+(i%4)*30,
-            child: Text(["🌸","🌺","🌻","🌼"][i%4],
-              style: const TextStyle(fontSize: 22)))),
-          ...List.generate(6, (i) => Positioned(
-            left: (i*55.0+10)%340, top: 80+(i%3)*60,
-            child: Text(i%2==0?"🌳":"🌲",
-              style: TextStyle(fontSize: 24+rand.nextInt(10).toDouble())))),
-          ...List.generate(4, (i) {
-            return AnimatedBuilder(
-              animation: _skyAnimationController,
-              builder: (ctx, _) {
-                final f = sin(_skyAnimationController.value*2*pi+i*0.9)*6;
-                return Positioned(left: (i*80.0+20)%340, top: 180+f,
-                  child: const Text("🦋",style: TextStyle(fontSize: 20)));
-              });
-          }),
-          ...List.generate(3, (i) => Positioned(
-            left: (i*110.0+30)%340, top: 360,
-            child: Text(["🐇","🦔","🐿️"][i],
-              style: const TextStyle(fontSize: 18)))),
-        ]);
-      case "farm":
-        return Stack(children: [
-          ...List.generate(8, (i) => Positioned(
-            left: (i*42.0)%340, top: 280+(i%3)*35,
-            child: Text(i%2==0?"🌾":"🌽",
-              style: const TextStyle(fontSize: 24)))),
-          ...List.generate(3, (i) => Positioned(
-            left: (i*110.0+20)%340, top: 120+(i%2)*60,
-            child: Text(["🐄","🐑","🐓"][i],
-              style: const TextStyle(fontSize: 26)))),
-          ...List.generate(4, (i) {
-            return AnimatedBuilder(
-              animation: _skyAnimationController,
-              builder: (ctx, _) {
-                final f = sin(_skyAnimationController.value*2*pi+i)*4;
-                return Positioned(left: (i*80.0+10)%340, top: 60+f,
-                  child: Text(i%2==0?"🌤️":"🌥️",
-                    style: const TextStyle(fontSize: 22)));
-              });
-          }),
-          Positioned(left: 20, top: 200,
-            child: const Text("🏡", style: TextStyle(fontSize: 36))),
-          Positioned(left: 260, top: 190,
-            child: const Text("🌻", style: TextStyle(fontSize: 32))),
-        ]);
-      default: // sky - النجوم الأصلية
-        return Stack(children: stars.asMap().entries.map((entry) {
-          int idx = entry.key;
-          StarModel star = entry.value;
-          final emoji = _timeOfDay=="night"?"⭐":_timeOfDay=="sunset"?"✨":"🌸";
-          final size = 14.0 + (idx%4)*4.0;
-          return AnimatedBuilder(
-            animation: _skyAnimationController,
-            builder: (ctx, _) {
-              final floatY = sin(_skyAnimationController.value*2*pi+star.floatOffset)*6;
-              return Positioned(
-                left: star.x, top: star.y+floatY,
-                child: GestureDetector(
-                  onPanUpdate: (d) => setState(() {
-                    star.x = (star.x+d.delta.dx).clamp(-10.0, 380.0);
-                    star.y = (star.y+d.delta.dy).clamp(-10.0, 700.0);
-                  }),
-                  onLongPress: () => setState(() => stars.removeAt(idx)),
-                  child: Text(emoji, style: TextStyle(fontSize: size)),
-                ),
-              );
-            });
-        }).toList());
-    }
-  }
+  // =================== مشاهد التأمل بـ CustomPainter ===================
 
   Widget _buildLivingSky() {
-    final colors = _getNatureColors();
-    return AnimatedContainer(
-      duration: const Duration(seconds: 2),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter, end: Alignment.bottomCenter,
-          colors: colors.length > 2
-            ? [colors[0], colors[1], colors[2], colors.last]
-            : [colors.first, colors.last]),
-      ),
-      child: Stack(
-        children: [
-          // عناصر المشهد المتحركة
-          Positioned.fill(child: _buildNatureEmojis()),
-
-          // التسمية العلوية
-          Positioned(
-            top: 20, left: 0, right: 0,
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.black26,
-                  borderRadius: BorderRadius.circular(30)),
-                child: Text(_getNatureLabel(),
-                  style: const TextStyle(color: Colors.white,
-                    fontSize: 15, fontWeight: FontWeight.w500))),
+    return Stack(
+      children: [
+        // الرسام الاحترافي
+        Positioned.fill(
+          child: AnimatedBuilder(
+            animation: _skyAnimationController,
+            builder: (ctx, _) => CustomPaint(
+              painter: _NatureScenePainter(
+                scene: _natureScene,
+                progress: _skyAnimationController.value,
+                timeOfDay: _timeOfDay,
+              ),
             ),
           ),
+        ),
 
-          // أزرار المشاهد
-          Positioned(
-            bottom: 20, left: 0, right: 0,
-            child: Column(
-              children: [
-                // صف المشاهد
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Row(
-                    children: [
-                      _sceneButton("sky",     "🌙", "السماء"),
-                      _sceneButton("river",   "🌊", "النهر"),
-                      _sceneButton("waterfall","💧","الشلال"),
-                      _sceneButton("nature",  "🌿", "الطبيعة"),
-                      _sceneButton("farm",    "🌾", "المزرعة"),
-                    ],
-                  ),
+        // تسمية عائمة
+        Positioned(
+          top: 28, left: 0, right: 0,
+          child: Center(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(30),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                color: Colors.black.withOpacity(0.30),
+                child: Text(_getNatureLabel(),
+                  style: const TextStyle(color: Colors.white,
+                    fontSize: 14, fontWeight: FontWeight.w600,
+                    letterSpacing: 0.6)),
+              ),
+            ),
+          ),
+        ),
+
+        // أزرار تبديل المشاهد
+        Positioned(
+          bottom: 18, left: 0, right: 0,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Row(
+                  children: [
+                    _sceneBtn("sky",       "☁️", "السماء",   [Color(0xFF0D1B2A), Color(0xFF1C3A5E)]),
+                    _sceneBtn("rain",      "🌧️", "المطر",    [Color(0xFF1A237E), Color(0xFF283593)]),
+                    _sceneBtn("river",     "🌊", "النهر",    [Color(0xFF1B5E20), Color(0xFF2E7D32)]),
+                    _sceneBtn("waterfall", "💧", "الشلال",   [Color(0xFF006064), Color(0xFF00838F)]),
+                    _sceneBtn("forest",    "🌿", "الغابة",   [Color(0xFF1B5E20), Color(0xFF33691E)]),
+                    _sceneBtn("fire",      "🔥", "النار",    [Color(0xFF3E0000), Color(0xFF7F0000)]),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                // أزرار النجوم (فقط عند مشهد السماء)
-                if (_natureScene == "sky") Row(
+              ),
+              const SizedBox(height: 10),
+              if (_natureScene == "sky") ...[
+                Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    ElevatedButton.icon(
-                      onPressed: _addStar,
-                      icon: const Text("⭐"),
-                      label: const Text("نجمة"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white24,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20)))),
+                    _miniBtn("⭐", "نجمة", _addStar),
                     const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      onPressed: _writeNameWithStars,
-                      icon: const Text("✍️"),
-                      label: const Text("اسمكِ"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.pinkAccent.withOpacity(0.5),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20)))),
+                    _miniBtn("✍️", "اسمكِ", _writeNameWithStars),
                     const SizedBox(width: 8),
                     ElevatedButton.icon(
                       onPressed: () => setState(() {
                         isNightMode = !isNightMode;
                         _timeOfDay = isNightMode ? "night" : "morning";
                       }),
-                      icon: Icon(_timeOfDay=="night"
-                        ? Icons.wb_sunny : Icons.nights_stay),
-                      label: Text(_timeOfDay=="night" ? "نهار" : "ليل"),
+                      icon: Icon(_timeOfDay == "night"
+                        ? Icons.wb_sunny_outlined : Icons.nights_stay_outlined, size: 16),
+                      label: Text(_timeOfDay == "night" ? "نهار" : "ليل",
+                        style: const TextStyle(fontSize: 12)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white24,
                         foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(20)))),
                   ],
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  _natureScene == "sky"
-                    ? "اسحبي النجوم • اضغطي طويلاً للحذف ⭐"
-                    : "استرخي وتأملي المشهد الجميل 🌿",
-                  style: const TextStyle(color: Colors.white54, fontSize: 11)),
-              ],
-            ),
+                const Text("اسحبي النجوم • اضغطي طويلاً للحذف",
+                  style: TextStyle(color: Colors.white54, fontSize: 11)),
+              ] else
+                Text(_getMeditationHint(),
+                  style: const TextStyle(color: Colors.white60, fontSize: 12)),
+            ],
           ),
-        ],
-      ),
+        ),
+
+        // النجوم القابلة للسحب (فقط عند السماء)
+        if (_natureScene == "sky")
+          ...stars.asMap().entries.map((e) {
+            final idx = e.key; final star = e.value;
+            final emoji = _timeOfDay == "night" ? "⭐"
+              : _timeOfDay == "sunset" ? "✨" : "🌸";
+            return AnimatedBuilder(
+              animation: _skyAnimationController,
+              builder: (ctx, _) {
+                final fy = sin(_skyAnimationController.value*2*pi+star.floatOffset)*6;
+                return Positioned(
+                  left: star.x, top: star.y + fy,
+                  child: GestureDetector(
+                    onPanUpdate: (d) => setState(() {
+                      star.x = (star.x+d.delta.dx).clamp(-10.0, 380.0);
+                      star.y = (star.y+d.delta.dy).clamp(-10.0, 700.0);
+                    }),
+                    onLongPress: () => setState(() => stars.removeAt(idx)),
+                    child: Text(emoji,
+                      style: TextStyle(fontSize: 14.0+(idx%4)*4.0))));
+              });
+          }),
+      ],
     );
   }
 
-  Widget _sceneButton(String scene, String emoji, String label) {
-    final isSelected = _natureScene == scene;
+  String _getNatureLabel() {
+    switch (_natureScene) {
+      case "rain":      return "🌧️ المطر الهادئ المنعش";
+      case "river":     return "🌊 على ضفة النهر الهادئ";
+      case "waterfall": return "💧 عند شلال الطبيعة";
+      case "forest":    return "🌿 في أعماق الغابة السحرية";
+      case "fire":      return "🔥 أمام المدفأة الدافئة";
+      default: return _timeOfDay == "night" ? "🌙 سماء الليل المرصّعة"
+        : _timeOfDay == "sunset" ? "🌅 غروب الشمس الذهبي"
+        : "☀️ سماء الصباح الصافية";
+    }
+  }
+
+  String _getMeditationHint() {
+    switch (_natureScene) {
+      case "rain":      return "أغمضي عينيكِ واستمعي لصوت المطر 🌧️";
+      case "river":     return "تخيلي نفسكِ جالسة على ضفة النهر 🌿";
+      case "waterfall": return "دعي همومكِ تتدفق مع الشلال 💧";
+      case "forest":    return "تنفسي هواء الغابة النقي 🌿";
+      case "fire":      return "استدفئي بدفء النار وارتاحي 🔥";
+      default: return "تأملي جمال السماء يا آلاء ✨";
+    }
+  }
+
+  Widget _sceneBtn(String scene, String emoji, String label, List<Color> grad) {
+    final sel = _natureScene == scene;
     return GestureDetector(
       onTap: () => setState(() => _natureScene = scene),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        margin: const EdgeInsets.only(right: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.black26,
-          borderRadius: BorderRadius.circular(20),
+          gradient: sel ? LinearGradient(colors: [Colors.white, Colors.white])
+                       : LinearGradient(colors: [Colors.black38, Colors.black26]),
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(
-            color: isSelected ? Colors.white : Colors.white30)),
+            color: sel ? Colors.white : Colors.white30, width: 1.5),
+          boxShadow: sel ? [BoxShadow(
+            color: Colors.white.withOpacity(0.25), blurRadius: 10)] : [],
+        ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(emoji, style: const TextStyle(fontSize: 16)),
-            const SizedBox(width: 4),
-            Text(label,
-              style: TextStyle(
-                color: isSelected ? Colors.black87 : Colors.white,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                fontSize: 12)),
+            Text(emoji, style: const TextStyle(fontSize: 15)),
+            const SizedBox(width: 5),
+            Text(label, style: TextStyle(
+              color: sel ? Colors.black87 : Colors.white,
+              fontWeight: sel ? FontWeight.bold : FontWeight.normal,
+              fontSize: 12)),
           ],
         ),
       ),
     );
   }
 
+  Widget _miniBtn(String emoji, String label, VoidCallback onTap) {
+    return ElevatedButton.icon(
+      onPressed: onTap,
+      icon: Text(emoji, style: const TextStyle(fontSize: 14)),
+      label: Text(label, style: const TextStyle(fontSize: 12)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white24,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
+    );
+  }
+
   Widget _buildPsychologySection() {
+
+
     return Column(
       children: [
         // Header
@@ -7267,6 +7166,818 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
   }
 
 }
+
+// ================================================================
+// ============= Particle System - مشاهد حية احترافية =============
+// ================================================================
+
+/// جسيم عام (مطر، شلال، نار، فقاعة، ورقة شجر)
+class _Particle {
+  double x, y, vx, vy, life, maxLife, size;
+  Color color;
+  _Particle({required this.x, required this.y, required this.vx,
+    required this.vy, required this.life, required this.maxLife,
+    required this.size, required this.color});
+  double get alpha => (life / maxLife).clamp(0.0, 1.0);
+}
+
+class _NatureScenePainter extends CustomPainter {
+  final String scene;
+  final double progress; // 0.0→1.0 looping
+  final String timeOfDay;
+
+  _NatureScenePainter({
+    required this.scene,
+    required this.progress,
+    required this.timeOfDay,
+  });
+
+  @override
+  void paint(Canvas canvas, Size sz) {
+    switch (scene) {
+      case "rain":      _paintRain(canvas, sz);      break;
+      case "river":     _paintRiver(canvas, sz);     break;
+      case "waterfall": _paintWaterfall(canvas, sz); break;
+      case "forest":    _paintForest(canvas, sz);    break;
+      case "fire":      _paintFire(canvas, sz);      break;
+      default:          _paintSky(canvas, sz);       break;
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // ☁️  السماء  ☁️
+  // ─────────────────────────────────────────────
+  void _paintSky(Canvas canvas, Size sz) {
+    final w = sz.width; final h = sz.height;
+    final night  = timeOfDay == "night";
+    final sunset = timeOfDay == "sunset";
+
+    // تدرج السماء
+    _fillGradient(canvas, sz, night
+      ? [const Color(0xFF020818), const Color(0xFF0A1628), const Color(0xFF0D0D30)]
+      : sunset
+        ? [const Color(0xFF0C0020), const Color(0xFFAA3000), const Color(0xFFFF7A1A), const Color(0xFFFFBB44)]
+        : [const Color(0xFF0A3060), const Color(0xFF1565C0), const Color(0xFF64B5F6), const Color(0xFFB3E5FC)]);
+
+    if (night) {
+      // 120 نجمة متلألئة بأحجام مختلفة
+      final rng = _Rng(7);
+      for (int i = 0; i < 120; i++) {
+        final sx = rng.f() * w;
+        final sy = rng.f() * h * 0.75;
+        final twinkle = (sin(progress * 2 * pi * (0.5 + rng.f()*2) + i * 1.3) + 1) / 2;
+        final r = rng.f() * 1.8 + 0.4;
+        // هالة للنجوم الكبيرة
+        if (r > 1.5) {
+          canvas.drawCircle(Offset(sx, sy), r * 3,
+            Paint()..color = Colors.white.withOpacity(twinkle * 0.12)
+                   ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
+        }
+        canvas.drawCircle(Offset(sx, sy), r,
+          Paint()..color = Colors.white.withOpacity(0.4 + twinkle * 0.6));
+      }
+      // درب التبانة
+      for (int i = 0; i < 200; i++) {
+        final mx = rng.f() * w * 0.6 + w * 0.2;
+        final my = rng.f() * h * 0.45 + h * 0.05;
+        final a = rng.f() * 0.3;
+        canvas.drawCircle(Offset(mx, my), 0.5,
+          Paint()..color = Colors.white.withOpacity(a));
+      }
+      // القمر + هالته
+      final mx = w * 0.78; final my = h * 0.14;
+      canvas.drawCircle(Offset(mx, my), 38,
+        Paint()..color = const Color(0xFFFFF8DC)
+               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+      canvas.drawCircle(Offset(mx, my), 56,
+        Paint()..color = const Color(0xFFFFF8DC).withOpacity(0.12)
+               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 22));
+      // ظل القمر
+      canvas.drawCircle(Offset(mx + 8, my - 5), 34,
+        Paint()..color = const Color(0xFF0A1628).withOpacity(0.35));
+      // سحب ليلية
+      _cloud(canvas, Offset(w*0.15, h*0.28), 0.8, const Color(0xFF0D2040).withOpacity(0.9));
+      _cloud(canvas, Offset(w*0.6,  h*0.2),  0.6, const Color(0xFF0D2040).withOpacity(0.7));
+
+    } else if (sunset) {
+      // الشمس الغاربة
+      final sy = h * 0.58 + sin(progress * 2 * pi) * 6;
+      for (double gr = 90; gr >= 20; gr -= 14) {
+        canvas.drawCircle(Offset(w*0.5, sy), gr,
+          Paint()..color = const Color(0xFFFF6600).withOpacity(0.05)
+                 ..maskFilter = const MaskFilter.blur(BlurStyle.normal, gr * 0.5));
+      }
+      canvas.drawCircle(Offset(w*0.5, sy), 34,
+        Paint()..color = const Color(0xFFFFCC00));
+      canvas.drawCircle(Offset(w*0.5, sy), 20,
+        Paint()..color = const Color(0xFFFFFF99));
+      // أشعة
+      for (int i = 0; i < 16; i++) {
+        final a = i * pi / 8 + progress * pi * 0.3;
+        canvas.drawLine(
+          Offset(w*0.5 + cos(a)*42, sy + sin(a)*42),
+          Offset(w*0.5 + cos(a)*(70+sin(progress*pi*4+i)*15), sy + sin(a)*(70+sin(progress*pi*4+i)*15)),
+          Paint()..color = const Color(0xFFFFCC44).withOpacity(0.25)
+                 ..strokeWidth = 1.5 + sin(progress*pi*6+i)*0.5
+                 ..strokeCap = StrokeCap.round);
+      }
+      // انعكاس على الأفق
+      _fillGradientRect(canvas,
+        Rect.fromLTWH(w*0.15, sy, w*0.7, h - sy),
+        [const Color(0xFFFF8800).withOpacity(0.35), Colors.transparent]);
+      _cloud(canvas, Offset(w*0.1, h*0.25), 1.1, const Color(0xFFCC3300).withOpacity(0.8));
+      _cloud(canvas, Offset(w*0.62, h*0.18), 0.75, const Color(0xFF991100).withOpacity(0.7));
+      _cloud(canvas, Offset(w*0.4, h*0.35), 0.5, const Color(0xFF771100).withOpacity(0.6));
+
+    } else {
+      // نهار: شمس + غيوم متحركة
+      final sunX = w * 0.78; final sunY = h * 0.12;
+      canvas.drawCircle(Offset(sunX, sunY), 44,
+        Paint()..color = const Color(0xFFFFEE44).withOpacity(0.18)
+               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 28));
+      canvas.drawCircle(Offset(sunX, sunY), 34, Paint()..color = const Color(0xFFFFD700));
+      canvas.drawCircle(Offset(sunX, sunY), 22, Paint()..color = const Color(0xFFFFFFAA));
+      final off = progress * w * 0.18;
+      _cloud(canvas, Offset(w*0.05 + off, h*0.14), 1.1, Colors.white.withOpacity(0.92));
+      _cloud(canvas, Offset(w*0.38 + off*0.7, h*0.08), 0.8, Colors.white.withOpacity(0.85));
+      _cloud(canvas, Offset(-w*0.1 + off*1.3, h*0.2), 0.9, Colors.white.withOpacity(0.78));
+    }
+
+    // أرض + أشجار
+    _fillGradientRect(canvas,
+      Rect.fromLTWH(0, h*0.76, w, h*0.24),
+      night
+        ? [const Color(0xFF050E08), const Color(0xFF030806)]
+        : sunset
+          ? [const Color(0xFF3D1500), const Color(0xFF1A0800)]
+          : [const Color(0xFF3A8C3A), const Color(0xFF1B5E20)]);
+    final tCol = night ? const Color(0xFF030D06)
+      : sunset ? const Color(0xFF2A0E00) : const Color(0xFF1B5E20);
+    for (int i = 0; i < 7; i++) {
+      _treeSimple(canvas, Offset((i/6)*w, h*0.76),
+        35 + (i%3)*18.0, tCol.withOpacity(0.9));
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // 🌧️  المطر  🌧️
+  // ─────────────────────────────────────────────
+  void _paintRain(Canvas canvas, Size sz) {
+    final w = sz.width; final h = sz.height;
+
+    // سماء داكنة ممطرة
+    _fillGradient(canvas, sz, [
+      const Color(0xFF0D1B2A), const Color(0xFF1C2E3D),
+      const Color(0xFF253545), const Color(0xFF1A2A38)]);
+
+    // غيوم ثقيلة متحركة
+    for (int i = 0; i < 5; i++) {
+      final cx = (progress * w * 0.4 + i * w * 0.22) % (w + 120) - 60;
+      final cy = h * 0.04 + i * h * 0.055;
+      _cloud(canvas, Offset(cx, cy),
+        0.8 + (i%2)*0.4,
+        const Color(0xFF1A2640).withOpacity(0.95));
+    }
+    // غيوم أمامية داكنة جداً
+    for (int i = 0; i < 3; i++) {
+      final cx = (progress * w * 0.25 + i * w * 0.4) % (w + 100) - 50;
+      _cloud(canvas, Offset(cx, h * 0.1 + i * h * 0.07),
+        1.2, const Color(0xFF101820).withOpacity(0.98));
+    }
+
+    // أضواء البرق (ومضات عشوائية)
+    final lightningPhase = (progress * 7) % 1.0;
+    if (lightningPhase < 0.07) {
+      canvas.drawRect(Rect.fromLTWH(0, 0, w, h),
+        Paint()..color = Colors.white.withOpacity((0.07 - lightningPhase) / 0.07 * 0.2));
+      // خط البرق
+      final lx = w * 0.3 + lightningPhase * w * 5;
+      _drawLightning(canvas, Offset(lx % w, 0), h * 0.55);
+    }
+
+    // قطرات المطر (120 قطرة)
+    final rng = _Rng(42);
+    final rainPaint = Paint()
+      ..strokeWidth = 1.2
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    for (int i = 0; i < 120; i++) {
+      final baseX = rng.f() * w;
+      final speed = 0.6 + rng.f() * 0.8;
+      final ry = (progress * h * speed * 1.8 + i * (h / 120) * 1.8) % (h * 1.1) - h * 0.1;
+      final rx = baseX + ry * 0.15; // ميل خفيف
+      final len = 10 + rng.f() * 14;
+      final alpha = 0.3 + rng.f() * 0.5;
+      rainPaint.color = const Color(0xFF90CAF9).withOpacity(alpha);
+      canvas.drawLine(Offset(rx, ry), Offset(rx + 2, ry + len), rainPaint);
+    }
+
+    // ضباب خفيف
+    for (int i = 0; i < 3; i++) {
+      final fogX = (progress * w * 0.3 + i * w * 0.4) % (w + 200) - 100;
+      canvas.drawOval(
+        Rect.fromLTWH(fogX, h * 0.55 + i * h * 0.12, w * 0.6, h * 0.12),
+        Paint()..color = Colors.white.withOpacity(0.04 + i * 0.02)
+               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 30));
+    }
+
+    // أرض مبلولة + انعكاس
+    _fillGradientRect(canvas, Rect.fromLTWH(0, h*0.78, w, h*0.22),
+      [const Color(0xFF0A1218), const Color(0xFF060C10)]);
+    // بركة انعكاس
+    canvas.drawOval(
+      Rect.fromLTWH(w*0.2, h*0.8, w*0.6, h*0.08),
+      Paint()..color = const Color(0xFF1C3A55).withOpacity(0.7));
+    // دوائر المطر على البركة
+    for (int i = 0; i < 6; i++) {
+      final rr = ((progress * 2 + i * 0.17) % 1.0) * w * 0.12;
+      canvas.drawCircle(
+        Offset(w * 0.3 + i * w * 0.08, h * 0.83),
+        rr,
+        Paint()
+          ..color = Colors.white.withOpacity(((1 - rr/(w*0.12)) * 0.25).clamp(0,1))
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0);
+    }
+    // أشجار في المطر
+    for (int i = 0; i < 5; i++) {
+      _treeSimple(canvas, Offset(i * w*0.25, h*0.78),
+        40 + i*12.0, const Color(0xFF0A1808).withOpacity(0.95));
+    }
+  }
+
+  void _drawLightning(Canvas canvas, Offset start, double len) {
+    final p = Paint()..color = const Color(0xFFE8F4FF).withOpacity(0.9)
+                    ..strokeWidth = 2.5
+                    ..strokeCap = StrokeCap.round
+                    ..style = PaintingStyle.stroke;
+    // هالة البرق
+    final glow = Paint()..color = Colors.white.withOpacity(0.25)
+                        ..strokeWidth = 8
+                        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6)
+                        ..style = PaintingStyle.stroke;
+    final path = Path()..moveTo(start.dx, start.dy);
+    double x = start.dx; double y = start.dy;
+    final rng = _Rng(33);
+    while (y < start.dy + len) {
+      x += (rng.f() - 0.5) * 30;
+      y += len * 0.12;
+      path.lineTo(x, y);
+    }
+    canvas.drawPath(path, glow);
+    canvas.drawPath(path, p);
+  }
+
+  // ─────────────────────────────────────────────
+  // 🌊  النهر  🌊
+  // ─────────────────────────────────────────────
+  void _paintRiver(Canvas canvas, Size sz) {
+    final w = sz.width; final h = sz.height;
+
+    // سماء النهر
+    _fillGradient(canvas, sz, [
+      const Color(0xFF0A2744), const Color(0xFF1565C0),
+      const Color(0xFF42A5F5), const Color(0xFF81D4FA)]);
+    // شمس
+    canvas.drawCircle(Offset(w*0.8, h*0.11), 30,
+      Paint()..color = const Color(0xFFFFE082));
+    canvas.drawCircle(Offset(w*0.8, h*0.11), 44,
+      Paint()..color = const Color(0xFFFFE082).withOpacity(0.2)
+             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14));
+    _cloud(canvas, Offset(w*0.08, h*0.09), 0.9, Colors.white.withOpacity(0.88));
+    _cloud(canvas, Offset(w*0.52, h*0.06), 0.7, Colors.white.withOpacity(0.75));
+
+    // ضفتا النهر (أرض خضراء)
+    final grassP = Paint()..shader = LinearGradient(
+      colors: [const Color(0xFF2E7D32), const Color(0xFF1B5E20)],
+      begin: Alignment.topCenter, end: Alignment.bottomCenter,
+    ).createShader(Rect.fromLTWH(0, h*0.42, w, h*0.58));
+    canvas.drawRect(Rect.fromLTWH(0, h*0.42, w*0.22, h*0.58), grassP);
+    canvas.drawRect(Rect.fromLTWH(w*0.78, h*0.42, w*0.22, h*0.58), grassP);
+
+    // جسم النهر
+    final riverPath = Path()
+      ..moveTo(w*0.22, h*0.42)
+      ..lineTo(w*0.78, h*0.42)
+      ..lineTo(w*0.74, h)
+      ..lineTo(w*0.26, h)
+      ..close();
+    canvas.drawPath(riverPath,
+      Paint()..shader = LinearGradient(
+        begin: Alignment.topCenter, end: Alignment.bottomCenter,
+        colors: [const Color(0xFF1565C0), const Color(0xFF0D47A1), const Color(0xFF0A3A80)],
+      ).createShader(Rect.fromLTWH(w*0.22, h*0.42, w*0.56, h*0.58)));
+
+    // تموجات النهر (طبقات متعددة)
+    for (int row = 0; row < 10; row++) {
+      final wy = h * 0.48 + row * h * 0.055;
+      final wPaint = Paint()
+        ..color = Colors.white.withOpacity(0.07 + (row % 3) * 0.04)
+        ..strokeWidth = row % 2 == 0 ? 2.5 : 1.5
+        ..style = PaintingStyle.stroke;
+      final wavePath = Path();
+      bool first = true;
+      for (double x = w*0.23; x < w*0.77; x += 8) {
+        final y = wy + sin((x * 0.08) + progress * 2 * pi * 1.5 + row * 0.6) * (3 + row * 0.3);
+        if (first) { wavePath.moveTo(x, y); first = false; }
+        else wavePath.lineTo(x, y);
+      }
+      canvas.drawPath(wavePath, wPaint);
+    }
+
+    // انعكاس الشمس على النهر
+    final reflPaint = Paint()
+      ..color = const Color(0xFFFFE082).withOpacity(0.18)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+    for (int i = 0; i < 5; i++) {
+      final rx = w*0.4 + (sin(progress*2*pi + i)*w*0.08);
+      final ry = h*0.5 + i * h*0.045;
+      canvas.drawOval(Rect.fromLTWH(rx, ry, w*0.2, h*0.025), reflPaint);
+    }
+
+    // أشجار الضفتين مع تأرجح
+    for (int i = 0; i < 5; i++) {
+      final sway = sin(progress * 2 * pi * 0.5 + i * 0.9) * 3;
+      _tree(canvas, Offset(w*0.01 + i*w*0.043 + sway, h*0.42), 55+i*9.0, const Color(0xFF1B5E20));
+      _tree(canvas, Offset(w*0.79 + i*w*0.042 + sway, h*0.42), 52+i*8.0, const Color(0xFF2E7D32));
+    }
+
+    // زهور الضفة
+    final flowerColors = [const Color(0xFFFF80AB), const Color(0xFFFFFF8D), const Color(0xFFB9F6CA)];
+    for (int i = 0; i < 7; i++) {
+      _flower(canvas, Offset(w*0.01 + i*w*0.028, h*0.78 + (i%3)*h*0.04), flowerColors[i%3]);
+      _flower(canvas, Offset(w*0.79 + i*w*0.028, h*0.75 + (i%2)*h*0.05), flowerColors[(i+1)%3]);
+    }
+
+    // طيور تطير
+    for (int i = 0; i < 3; i++) {
+      final bx = (progress * w * 1.2 + i * w * 0.38) % (w + 60) - 30;
+      _bird(canvas, Offset(bx, h*0.14 + i*h*0.05), progress + i * 0.33);
+    }
+
+    // سمكة تظهر وتختفي
+    final fishX = w*0.3 + sin(progress*2*pi)*w*0.2;
+    final fishY = h*0.72 + cos(progress*2*pi*0.7)*h*0.06;
+    if (sin(progress * 2 * pi * 2) > 0.7) {
+      _fish(canvas, Offset(fishX, fishY));
+    }
+  }
+
+  void _fish(Canvas canvas, Offset pos) {
+    canvas.drawOval(Rect.fromLTWH(pos.dx, pos.dy, 18, 8),
+      Paint()..color = const Color(0xFFFF8F00).withOpacity(0.8));
+    final tail = Path()
+      ..moveTo(pos.dx, pos.dy + 4)
+      ..lineTo(pos.dx - 7, pos.dy)
+      ..lineTo(pos.dx - 7, pos.dy + 8)
+      ..close();
+    canvas.drawPath(tail, Paint()..color = const Color(0xFFFF6F00).withOpacity(0.8));
+  }
+
+  // ─────────────────────────────────────────────
+  // 💧  الشلال  💧
+  // ─────────────────────────────────────────────
+  void _paintWaterfall(Canvas canvas, Size sz) {
+    final w = sz.width; final h = sz.height;
+
+    // خلفية الشلال
+    _fillGradient(canvas, sz, [
+      const Color(0xFF0D2A1A), const Color(0xFF1B5E20),
+      const Color(0xFF2E7D32), const Color(0xFF1A4A10)]);
+
+    // الصخرة الرئيسية
+    final rockPaint = Paint()..color = const Color(0xFF37474F);
+    final rockPath = Path()
+      ..moveTo(w*0.15, h*0.28)
+      ..quadraticBezierTo(w*0.5, h*0.01, w*0.85, h*0.28)
+      ..lineTo(w*0.85, h*0.38)
+      ..quadraticBezierTo(w*0.5, h*0.18, w*0.15, h*0.38)
+      ..close();
+    canvas.drawPath(rockPath, rockPaint);
+    canvas.drawPath(rockPath,
+      Paint()..color = const Color(0xFF263238)
+             ..style = PaintingStyle.stroke
+             ..strokeWidth = 2);
+    // تشقق الصخرة
+    for (int i = 0; i < 4; i++) {
+      canvas.drawLine(
+        Offset(w*0.25 + i*w*0.15, h*0.1),
+        Offset(w*0.22 + i*w*0.15 + 8, h*0.25),
+        Paint()..color = const Color(0xFF1A252A).withOpacity(0.5)
+               ..strokeWidth = 1);
+    }
+
+    // شرائط الماء المتدفق (Particle متعدد)
+    final rng = _Rng(55);
+    for (int col = 0; col < 18; col++) {
+      final cx = w*0.22 + col * w*0.033;
+      // سرعات متفاوتة لكل شريط
+      final speed = 0.7 + rng.f() * 0.6;
+      final phase = rng.f();
+      for (int drop = 0; drop < 3; drop++) {
+        final yStart = h * 0.32;
+        final fy = (progress * h * speed + phase * h + drop * h*0.28) % (h * 0.55) + yStart;
+        final dropH = h * 0.1 + rng.f() * h * 0.12;
+        final alpha = 0.25 + rng.f() * 0.45;
+        final ww = 3.0 + (col % 4) * 1.5;
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(Rect.fromLTWH(cx - ww/2, fy, ww, dropH),
+            const Radius.circular(4)),
+          Paint()..shader = LinearGradient(
+            colors: [
+              Colors.white.withOpacity(alpha),
+              const Color(0xFF90CAF9).withOpacity(alpha * 0.7),
+              Colors.transparent,
+            ],
+            begin: Alignment.topCenter, end: Alignment.bottomCenter,
+          ).createShader(Rect.fromLTWH(cx, fy, ww, dropH)));
+      }
+    }
+
+    // رذاذ عند القاع (Particles صغيرة)
+    final sprayRng = _Rng(77);
+    for (int i = 0; i < 40; i++) {
+      final sx = w*0.22 + sprayRng.f() * w*0.56;
+      final sy = h*0.75 + ((progress * 90 + i * 20) % 50);
+      final sr = sprayRng.f() * 2.5 + 0.8;
+      final sa = ((sin(progress * 2 * pi * 3 + i * 0.5) + 1) / 2) * 0.5 + 0.1;
+      canvas.drawCircle(Offset(sx, sy), sr,
+        Paint()..color = Colors.white.withOpacity(sa));
+    }
+
+    // البركة
+    final poolPaint = Paint()..shader = RadialGradient(
+      center: Alignment.topCenter,
+      colors: [const Color(0xFF64B5F6), const Color(0xFF0D47A1), const Color(0xFF082060)],
+    ).createShader(Rect.fromLTWH(w*0.1, h*0.74, w*0.8, h*0.18));
+    canvas.drawOval(Rect.fromLTWH(w*0.1, h*0.74, w*0.8, h*0.18), poolPaint);
+
+    // دوائر البركة المتمددة
+    for (int r = 0; r < 5; r++) {
+      final rp = ((progress + r * 0.2) % 1.0);
+      final rippleR = rp * w * 0.3;
+      canvas.drawCircle(Offset(w*0.5, h*0.8), rippleR,
+        Paint()
+          ..color = Colors.white.withOpacity(((1-rp)*0.3).clamp(0,1))
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.8 - rp * 1.5);
+    }
+
+    // أشجار الغابة المحيطة بتأرجح
+    for (int i = 0; i < 4; i++) {
+      final sway = sin(progress * 2 * pi * 0.4 + i * 1.2) * 3;
+      _tallTree(canvas, Offset(w*0.01 + i*w*0.055 + sway, h*0.74), 80+i*14.0, const Color(0xFF1B5E20));
+      _tallTree(canvas, Offset(w*0.79 + i*w*0.06 + sway*0.8, h*0.74), 75+i*12.0, const Color(0xFF2E7D32));
+    }
+
+    // طيور
+    for (int i = 0; i < 2; i++) {
+      final bx = (progress * w + i * w * 0.55) % (w + 50) - 25;
+      _bird(canvas, Offset(bx, h*0.18 + i*h*0.06), progress + i*0.5);
+    }
+
+    // ضباب عند البركة
+    canvas.drawRect(Rect.fromLTWH(0, h*0.7, w, h*0.12),
+      Paint()..color = Colors.white.withOpacity(0.06)
+             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 22));
+  }
+
+  // ─────────────────────────────────────────────
+  // 🌿  الغابة  🌿
+  // ─────────────────────────────────────────────
+  void _paintForest(Canvas canvas, Size sz) {
+    final w = sz.width; final h = sz.height;
+
+    // الغابة - تدرج خضري عميق
+    _fillGradient(canvas, sz, [
+      const Color(0xFF051205), const Color(0xFF0D2A0D),
+      const Color(0xFF1B5E20), const Color(0xFF2E7D32)]);
+
+    // ضوء يتسرب من الأعلى (شعاع شمسي)
+    final beamOff = sin(progress * 2 * pi * 0.25) * w * 0.12;
+    for (int b = 0; b < 3; b++) {
+      final bx = w * 0.25 + b * w * 0.25 + beamOff;
+      final beamPaint = Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter, end: Alignment.bottomCenter,
+          colors: [const Color(0xFFFFF9C4).withOpacity(0.22), Colors.transparent],
+        ).createShader(Rect.fromLTWH(bx - w*0.07, 0, w*0.14, h*0.68))
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18);
+      canvas.save();
+      canvas.translate(bx, 0);
+      canvas.rotate(sin(progress * 2 * pi * 0.2 + b) * 0.08);
+      canvas.translate(-bx, 0);
+      canvas.drawRect(Rect.fromLTWH(bx - w*0.07, 0, w*0.14, h*0.68), beamPaint);
+      canvas.restore();
+    }
+
+    // أرضية الغابة
+    _fillGradientRect(canvas, Rect.fromLTWH(0, h*0.72, w, h*0.28),
+      [const Color(0xFF1B3A1B), const Color(0xFF0D200D)]);
+
+    // جذور وصخور
+    final rng = _Rng(31);
+    for (int i = 0; i < 12; i++) {
+      canvas.drawOval(
+        Rect.fromLTWH(rng.f()*w, h*0.78 + rng.f()*h*0.18, 6+rng.f()*12, 4+rng.f()*8),
+        Paint()..color = const Color(0xFF4E342E).withOpacity(0.4));
+    }
+
+    // أشجار بعيدة (خلفية)
+    for (int i = 0; i < 10; i++) {
+      final sway = sin(progress * 2 * pi * 0.4 + i * 0.75) * 2.5;
+      _tallTree(canvas, Offset((i/9)*w + sway, h*0.72),
+        70 + (i%3)*25.0, const Color(0xFF1B5E20).withOpacity(0.65));
+    }
+    // أشجار أمامية (أكبر، أوضح)
+    for (int i = 0; i < 6; i++) {
+      final sway = sin(progress * 2 * pi * 0.35 + i * 1.0) * 4;
+      _tallTree(canvas, Offset(i * w*0.2 + sway, h*0.68),
+        110 + (i%2)*45.0, const Color(0xFF2E7D32));
+    }
+
+    // فراشات طائرة (5 فراشات)
+    for (int i = 0; i < 5; i++) {
+      final bx = w*0.1 + (progress*w*0.7 + i*w*0.2) % (w*0.8);
+      final by = h*0.35 + sin(progress*2*pi*2 + i*1.4) * h*0.14;
+      _butterfly(canvas, Offset(bx, by), progress + i * 0.2);
+    }
+
+    // ضباب أرضي
+    for (int i = 0; i < 3; i++) {
+      final fogX = (progress*w*0.2 + i*w*0.4) % (w+180) - 90;
+      canvas.drawOval(
+        Rect.fromLTWH(fogX - w*0.2, h*0.68 + i*h*0.05, w*0.8, h*0.08),
+        Paint()..color = Colors.white.withOpacity(0.055 + i*0.015)
+               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 25));
+    }
+
+    // حشرات مضيئة (Fireflies) في الليل / ذرات بريق
+    for (int i = 0; i < 18; i++) {
+      final frng = _Rng(i * 17);
+      final fx = frng.f() * w;
+      final fy = h*0.3 + frng.f() * h*0.5;
+      final fBlink = (sin(progress*2*pi*2 + i*1.7) + 1) / 2;
+      if (fBlink > 0.55) {
+        canvas.drawCircle(Offset(fx, fy), 2.5,
+          Paint()..color = const Color(0xFFFFFF99).withOpacity(fBlink * 0.8)
+                 ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5));
+      }
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // 🔥  النار  🔥
+  // ─────────────────────────────────────────────
+  void _paintFire(Canvas canvas, Size sz) {
+    final w = sz.width; final h = sz.height;
+
+    // خلفية دافئة ليلية
+    _fillGradient(canvas, sz, [
+      const Color(0xFF0A0505), const Color(0xFF1A0800),
+      const Color(0xFF2D0F00), const Color(0xFF180800)]);
+
+    // أرضية مع حجارة المدفأة
+    _fillGradientRect(canvas, Rect.fromLTWH(0, h*0.78, w, h*0.22),
+      [const Color(0xFF1A0A00), const Color(0xFF0D0500)]);
+
+    // حجارة الموقد
+    final stonePaint = Paint()..color = const Color(0xFF3E2723);
+    canvas.drawOval(Rect.fromLTWH(w*0.12, h*0.74, w*0.76, h*0.12), stonePaint);
+    canvas.drawOval(Rect.fromLTWH(w*0.15, h*0.75, w*0.7, h*0.09),
+      Paint()..color = const Color(0xFF2A1A14));
+
+    // جذوع الحطب
+    for (int i = 0; i < 3; i++) {
+      canvas.save();
+      canvas.translate(w*0.3 + i*w*0.12, h*0.77);
+      canvas.rotate(-0.3 + i*0.3);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(Rect.fromLTWH(-w*0.1, -h*0.025, w*0.2, h*0.035),
+          const Radius.circular(4)),
+        Paint()..color = const Color(0xFF4E342E));
+      canvas.restore();
+    }
+    // جمر تحت النار
+    final emberColors = [const Color(0xFFFF3D00), const Color(0xFFFF6D00), const Color(0xFFFF9100)];
+    final rng = _Rng(88);
+    for (int i = 0; i < 15; i++) {
+      final ex = w*0.28 + rng.f()*w*0.44;
+      final ey = h*0.74 + rng.f()*h*0.05;
+      final pulse = (sin(progress*2*pi*3+i*0.8)+1)/2;
+      canvas.drawCircle(Offset(ex, ey), 3+rng.f()*4,
+        Paint()..color = emberColors[i%3].withOpacity(0.6+pulse*0.4));
+    }
+
+    // ====== لهب النار (Particle System) ======
+    // عدة طبقات من اللهب
+    final flameLayers = [
+      // [يسار مركز، عرض نسبي، ارتفاع، خصائص]
+      [0.28, 0.44, 0.48, 0], // طبقة رئيسية
+      [0.33, 0.34, 0.38, 1], // طبقة وسط
+      [0.38, 0.24, 0.28, 2], // طبقة داخلية
+    ];
+
+    for (int li = 0; li < flameLayers.length; li++) {
+      final layer = flameLayers[li];
+      final lx = w * layer[0]; final lw = w * layer[1];
+      final lh = h * layer[2];
+      final base = h * 0.74;
+      final layerProg = progress + li * 0.12;
+
+      for (int col = 0; col < 12; col++) {
+        final cx = lx + col * (lw / 11);
+        final flameH = lh * (0.5 + sin(layerProg * 2 * pi * 2 + col * 0.7) * 0.5);
+        final wobble = sin(layerProg * 2 * pi * 3 + col * 0.5) * w * 0.018;
+
+        final flameColors = li == 0
+          ? [const Color(0xFFFFFF00).withOpacity(0.0), const Color(0xFFFFCC00).withOpacity(0.7),
+             const Color(0xFFFF6600).withOpacity(0.85), const Color(0xFFCC2200).withOpacity(0.9)]
+          : li == 1
+            ? [const Color(0xFFFFFFFF).withOpacity(0.0), const Color(0xFFFFFF88).withOpacity(0.5),
+               const Color(0xFFFFAA00).withOpacity(0.7), const Color(0xFFFF4400).withOpacity(0.8)]
+            : [const Color(0xFFFFFFFF).withOpacity(0.0), const Color(0xFFFFFFCC).withOpacity(0.6),
+               const Color(0xFFFFCC44).withOpacity(0.8), const Color(0xFFFFFFFF).withOpacity(0.0)];
+
+        final flamePath = Path()
+          ..moveTo(cx - lw*0.04, base)
+          ..quadraticBezierTo(
+            cx - lw*0.02 + wobble * 0.5, base - flameH * 0.5,
+            cx + wobble, base - flameH)
+          ..quadraticBezierTo(
+            cx + lw*0.02 + wobble * 0.5, base - flameH * 0.5,
+            cx + lw*0.04, base)
+          ..close();
+
+        canvas.drawPath(flamePath,
+          Paint()..shader = LinearGradient(
+            begin: Alignment.bottomCenter, end: Alignment.topCenter,
+            colors: flameColors,
+          ).createShader(Rect.fromLTWH(cx - lw*0.04, base - flameH, lw*0.08, flameH)));
+      }
+    }
+
+    // جزيئات الشرر الطائرة
+    final sparkRng = _Rng(66);
+    for (int i = 0; i < 25; i++) {
+      final baseX = w*0.3 + sparkRng.f()*w*0.4;
+      final speed = 0.3 + sparkRng.f() * 0.7;
+      final sy = h*0.74 - ((progress * h * speed + i*(h/25)) % (h*0.6));
+      final sx = baseX + sin(progress*2*pi*2 + i*1.1) * w*0.06;
+      final sa = ((1 - (h*0.74-sy)/(h*0.6)).clamp(0.0, 1.0)) * 0.85;
+      if (sa > 0.05) {
+        canvas.drawCircle(Offset(sx, sy), 1.5 + sparkRng.f()*2,
+          Paint()..color = const Color(0xFFFFCC44).withOpacity(sa)
+                 ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2));
+      }
+    }
+
+    // توهج النار على المحيط
+    canvas.drawOval(
+      Rect.fromLTWH(w*0.1, h*0.4, w*0.8, h*0.38),
+      Paint()..color = const Color(0xFFFF4400).withOpacity(0.08)
+             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 40));
+
+    // دخان
+    final smokeRng = _Rng(44);
+    for (int i = 0; i < 8; i++) {
+      final smProgress = (progress * 0.4 + i * 0.125) % 1.0;
+      final sx = w*0.4 + sin(smProgress * 2 * pi + i) * w*0.12;
+      final sy = h*0.26 - smProgress * h*0.22;
+      final sr = 15 + smProgress * 35;
+      canvas.drawCircle(Offset(sx, sy), sr,
+        Paint()..color = const Color(0xFF1A1A1A).withOpacity((1-smProgress)*0.2)
+               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, sr*0.7));
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // دوال مساعدة
+  // ─────────────────────────────────────────────
+  void _fillGradient(Canvas canvas, Size sz, List<Color> colors) {
+    final stops = List.generate(colors.length, (i) => i / (colors.length - 1));
+    canvas.drawRect(Rect.fromLTWH(0, 0, sz.width, sz.height),
+      Paint()..shader = LinearGradient(
+        begin: Alignment.topCenter, end: Alignment.bottomCenter,
+        colors: colors, stops: stops,
+      ).createShader(Rect.fromLTWH(0, 0, sz.width, sz.height)));
+  }
+
+  void _fillGradientRect(Canvas canvas, Rect rect, List<Color> colors) {
+    canvas.drawRect(rect,
+      Paint()..shader = LinearGradient(
+        begin: Alignment.topCenter, end: Alignment.bottomCenter,
+        colors: colors,
+      ).createShader(rect));
+  }
+
+  void _cloud(Canvas canvas, Offset pos, double scale, Color color) {
+    final p = Paint()..color = color
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+    final r = 24.0 * scale;
+    canvas.drawCircle(pos, r, p);
+    canvas.drawCircle(pos + Offset(-r*0.72, r*0.05), r*0.78, p);
+    canvas.drawCircle(pos + Offset( r*0.72, r*0.05), r*0.78, p);
+    canvas.drawCircle(pos + Offset(-r*1.35, r*0.3),  r*0.62, p);
+    canvas.drawCircle(pos + Offset( r*1.35, r*0.3),  r*0.62, p);
+    canvas.drawRect(
+      Rect.fromLTWH(pos.dx - r*1.6, pos.dy, r*3.2, r*0.55),
+      Paint()..color = color);
+  }
+
+  void _tree(Canvas canvas, Offset base, double h, Color color) {
+    canvas.drawRect(Rect.fromLTWH(base.dx-4, base.dy-h*0.32, 8, h*0.32),
+      Paint()..color = const Color(0xFF5D4037));
+    final p = Paint()..color = color;
+    canvas.drawCircle(base + Offset(0, -h*0.55), h*0.38, p);
+    canvas.drawCircle(base + Offset(-h*0.22, -h*0.44), h*0.28, p);
+    canvas.drawCircle(base + Offset( h*0.22, -h*0.44), h*0.28, p);
+  }
+
+  void _tallTree(Canvas canvas, Offset base, double h, Color color) {
+    canvas.drawRect(Rect.fromLTWH(base.dx-5, base.dy-h*0.38, 10, h*0.38),
+      Paint()..color = const Color(0xFF3E2723));
+    final p = Paint()..color = color;
+    for (int t = 0; t < 3; t++) {
+      final ty = base.dy - h * (0.35 + t * 0.25);
+      final tw = h * (0.38 - t * 0.08);
+      final path = Path()
+        ..moveTo(base.dx, base.dy - h * (0.6 + t * 0.18))
+        ..lineTo(base.dx - tw, ty)
+        ..lineTo(base.dx + tw, ty)
+        ..close();
+      canvas.drawPath(path, p);
+    }
+  }
+
+  void _treeSimple(Canvas canvas, Offset base, double h, Color color) {
+    canvas.drawRect(Rect.fromLTWH(base.dx-3, base.dy-h*0.3, 6, h*0.3),
+      Paint()..color = const Color(0xFF3E2723));
+    final path = Path()
+      ..moveTo(base.dx, base.dy - h)
+      ..lineTo(base.dx - h*0.28, base.dy - h*0.3)
+      ..lineTo(base.dx + h*0.28, base.dy - h*0.3)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  void _flower(Canvas canvas, Offset pos, Color color) {
+    canvas.drawLine(pos, pos+const Offset(0,14),
+      Paint()..color = const Color(0xFF4CAF50)..strokeWidth = 2);
+    final pp = Paint()..color = color;
+    for (int i = 0; i < 5; i++) {
+      final a = i * 2 * pi / 5;
+      canvas.drawCircle(pos + Offset(cos(a)*6, sin(a)*6), 4, pp);
+    }
+    canvas.drawCircle(pos, 4, Paint()..color = const Color(0xFFFFD700));
+  }
+
+  void _bird(Canvas canvas, Offset pos, double t) {
+    final flap = sin(t * 2 * pi * 4) * 5;
+    final p = Paint()..color = Colors.white.withOpacity(0.8)
+                    ..strokeWidth = 1.8
+                    ..style = PaintingStyle.stroke
+                    ..strokeCap = StrokeCap.round;
+    final path = Path()
+      ..moveTo(pos.dx-10, pos.dy)
+      ..quadraticBezierTo(pos.dx-5, pos.dy-flap, pos.dx, pos.dy)
+      ..quadraticBezierTo(pos.dx+5, pos.dy-flap, pos.dx+10, pos.dy);
+    canvas.drawPath(path, p);
+  }
+
+  void _butterfly(Canvas canvas, Offset pos, double t) {
+    final flap = sin(t * 2 * pi * 6);
+    final colors = [const Color(0xFFE91E63), const Color(0xFF9C27B0),
+                    const Color(0xFFFF9800), const Color(0xFF00BCD4)];
+    final c = colors[(t * 8).toInt() % colors.length];
+    for (int side = 0; side < 2; side++) {
+      final sx = side == 0 ? -1.0 : 1.0;
+      final path = Path()
+        ..moveTo(pos.dx, pos.dy)
+        ..quadraticBezierTo(pos.dx+sx*18, pos.dy-flap*9, pos.dx+sx*14, pos.dy+9)
+        ..quadraticBezierTo(pos.dx+sx*7,  pos.dy+12,     pos.dx, pos.dy);
+      canvas.drawPath(path, Paint()..color = c.withOpacity(0.72));
+    }
+    canvas.drawCircle(pos, 1.5, Paint()..color = Colors.black54);
+  }
+
+  @override
+  bool shouldRepaint(_NatureScenePainter o) =>
+    o.progress != progress || o.scene != scene || o.timeOfDay != timeOfDay;
+}
+
+class _Rng {
+  int _s;
+  _Rng(int seed) : _s = seed ^ 0xDEADBEEF;
+  double f() {
+    _s = (_s ^ (_s << 13)) & 0xFFFFFFFF;
+    _s = (_s ^ (_s >> 17)) & 0xFFFFFFFF;
+    _s = (_s ^ (_s << 5))  & 0xFFFFFFFF;
+    return (_s & 0xFFFF) / 65535.0;
+  }
+}
+
+
 class _ImageViewerPage extends StatefulWidget {
   final String imagePath;
   const _ImageViewerPage({required this.imagePath});
