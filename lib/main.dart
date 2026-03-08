@@ -407,7 +407,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
   Timer? _timeOfDayTimer;                   // تحديث وقت اليوم
   String _timeOfDay = "morning";            // morning/afternoon/sunset/night
   String _natureScene = "sky";              // sky/river/waterfall/nature/farm
-  final AudioPlayer _meditationPlayer = AudioPlayer();
+
   bool _meditationSoundOn = true;           // وضع الصوت مفعّل/مغلق
 
   // ================ متغيرات الورد اليومي ================
@@ -2088,34 +2088,64 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
 
 
   // =================== صوت التأمل ===================
+  // كلمة البحث للأغنية المناسبة لكل مشهد
   String _getMeditationSoundFile(String scene) {
-    // أسماء الملفات بعد إعادة التسمية
     switch (scene) {
-      case 'sky':       return 'sky.wav';
-      case 'rain':      return 'rain.wav';
-      case 'river':     return 'river.wav';
-      case 'waterfall': return 'river.wav';
-      case 'forest':    return 'forest.wav';
-      case 'fire':      return 'fire.mp3';
-      default:          return 'sky.wav';
+      case 'sky':       return 'sky';
+      case 'rain':      return 'rain';
+      case 'river':     return 'river';
+      case 'waterfall': return 'river';
+      case 'forest':    return 'forest';
+      case 'fire':      return 'fire';
+      default:          return 'sky';
     }
   }
 
+  // اسم الأغنية المشغّلة حالياً في التأمل
+  String _getMeditationNowPlaying() {
+    if (!_isPlaying || currentSongName == null) return "";
+    final name = currentSongName!;
+    return name.length > 22 ? name.substring(0, 22) + "..." : name;
+  }
+
+  // تشغيل أغنية من المشغل الرئيسي حسب الكلمة المفتاحية
   Future<void> _playMeditationSound(String scene) async {
     if (!_meditationSoundOn) return;
+    if (songs.isEmpty) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("🎵 أضيفي أصوات الطبيعة في مشغل الموسيقى أولاً"),
+          backgroundColor: Colors.deepPurple,
+          duration: Duration(seconds: 3)));
+      return;
+    }
+    // ابحث عن أغنية تطابق المشهد
+    final keyword = _getMeditationSoundFile(scene);
+    Song? match;
+    // بحث بالكلمة المفتاحية
+    for (final s in songs) {
+      final name = s.name.toLowerCase();
+      if (name.contains(keyword.toLowerCase())) { match = s; break; }
+    }
+    // إذا لم يجد - شغّل أول أغنية
+    match ??= songs.first;
     try {
-      final file = _getMeditationSoundFile(scene);
-      await _meditationPlayer.stop();
-      await _meditationPlayer.setVolume(1.0);
-      await _meditationPlayer.setReleaseMode(ReleaseMode.loop);
-      await _meditationPlayer.play(AssetSource('audio/$file'));
+      await _player.play(DeviceFileSource(match.path));
+      await _player.setReleaseMode(ReleaseMode.loop);
+      setState(() {
+        currentSongName = match!.name;
+        _isPlaying = true;
+      });
     } catch (e) {
       debugPrint('Sound error: $e');
     }
   }
 
   Future<void> _stopMeditationSound() async {
-    try { await _meditationPlayer.stop(); } catch (_) {}
+    try {
+      await _player.stop();
+      setState(() => _isPlaying = false);
+    } catch (_) {}
   }
 
   Widget _buildLivingSky() {
@@ -2203,9 +2233,9 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                 const Text("اسحبي النجوم • اضغطي طويلاً للحذف",
                   style: TextStyle(color: Colors.white54, fontSize: 11)),
               ] else
-                Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+                Column(
                 children: [
+                  // شريط الصوت
                   GestureDetector(
                     onTap: () {
                       setState(() => _meditationSoundOn = !_meditationSoundOn);
@@ -2217,30 +2247,38 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
                     },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
                       decoration: BoxDecoration(
-                        color: _meditationSoundOn
-                          ? Colors.white.withOpacity(0.2)
-                          : Colors.black38,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white30)),
+                        color: _meditationSoundOn && _isPlaying
+                          ? Colors.white.withOpacity(0.25)
+                          : Colors.black45,
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(
+                          color: _meditationSoundOn && _isPlaying
+                            ? Colors.white60 : Colors.white24,
+                          width: 1.5)),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            _meditationSoundOn ? Icons.volume_up : Icons.volume_off,
-                            color: Colors.white, size: 16),
-                          const SizedBox(width: 5),
+                            _meditationSoundOn && _isPlaying
+                              ? Icons.graphic_eq : Icons.volume_off,
+                            color: Colors.white,
+                            size: 17),
+                          const SizedBox(width: 7),
                           Text(
-                            _meditationSoundOn ? "صوت مفعّل" : "صامت",
-                            style: const TextStyle(color: Colors.white, fontSize: 12)),
+                            _meditationSoundOn && _isPlaying
+                              ? "🎵 ${_getMeditationNowPlaying()}"
+                              : "اضغطي لتشغيل صوت المشهد",
+                            style: const TextStyle(
+                              color: Colors.white, fontSize: 12)),
                         ],
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(height: 5),
                   Text(_getMeditationHint(),
-                    style: const TextStyle(color: Colors.white60, fontSize: 12)),
+                    style: const TextStyle(color: Colors.white54, fontSize: 11)),
                 ],
               ),
             ],
@@ -3352,8 +3390,7 @@ class _AlaaAppHomeState extends State<AlaaAppHome> with TickerProviderStateMixin
     _timeOfDayTimer?.cancel();
     _clockTimer?.cancel();
     _player.dispose();
-    _meditationPlayer.stop();
-    _meditationPlayer.dispose();
+
     super.dispose();
   }
 
